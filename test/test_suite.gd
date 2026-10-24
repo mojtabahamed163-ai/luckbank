@@ -83,7 +83,7 @@ func _fresh(mode: String = Model.MODE_COMPUTER, names: Array = [], difficulty: S
 
 func _test_board_definition() -> void:
 	_check(Model.BOARD.size() == 40 and Model.TILE_COUNT == 40, "exactly 40 board spaces")
-	var expected_names := ["البداية", "مصر", "السودان", "المغرب", "جنوب أفريقيا", "ضريبة الخدمات العامة", "نيجيريا", "كينيا", "السعودية", "الإمارات", "السجن", "تركيا", "الهند", "السوق والاستثمار", "الصين", "حدث اقتصادي", "اليابان", "كوريا الجنوبية", "إندونيسيا", "سنغافورة", "الراحة الاقتصادية", "أستراليا", "نيوزيلندا", "حدث اقتصادي", "فرنسا", "حدث اقتصادي", "ألمانيا", "إيطاليا", "إسبانيا", "المملكة المتحدة", "السوق العالمي", "النرويج", "روسيا", "البرازيل", "الأرجنتين", "حدث اقتصادي", "المكسيك", "كندا", "الولايات المتحدة الأمريكية", "تشيلي"]
+	var expected_names := ["البداية", "السودان", "مصر", "المغرب", "جنوب أفريقيا", "ضريبة الخدمات العامة", "نيجيريا", "كينيا", "السعودية", "الإمارات", "السجن", "تركيا", "الهند", "السوق والاستثمار", "الصين", "حدث اقتصادي", "اليابان", "كوريا الجنوبية", "إندونيسيا", "سنغافورة", "الراحة الاقتصادية", "أستراليا", "نيوزيلندا", "حدث اقتصادي", "فرنسا", "حدث اقتصادي", "ألمانيا", "إيطاليا", "إسبانيا", "المملكة المتحدة", "السوق العالمي", "النرويج", "روسيا", "البرازيل", "الأرجنتين", "حدث اقتصادي", "المكسيك", "كندا", "الولايات المتحدة الأمريكية", "تشيلي"]
 	var actual_names: Array[String] = []
 	var counts := {"start": 0, "country": 0, "tax": 0, "event": 0, "rest": 0, "jail": 0, "market": 0}
 	for i in range(Model.BOARD.size()):
@@ -99,7 +99,7 @@ func _test_board_definition() -> void:
 	for group_id in range(6):
 		var game = _fresh()
 		_check(game.group_tiles(group_id).size() == 5, "group %d contains five countries" % group_id)
-	var expected_economy := [[1, 800, 80, 40], [2, 1600, 160, 80], [3, 850, 85, 40], [4, 1100, 110, 55], [6, 1000, 100, 50], [7, 750, 75, 35], [8, 1500, 150, 75], [9, 1700, 170, 85], [11, 1200, 120, 60], [12, 1300, 130, 65], [14, 2200, 220, 110], [16, 2100, 210, 105], [17, 1800, 180, 90], [18, 1000, 100, 50], [19, 1900, 190, 95], [21, 1800, 180, 90], [22, 1200, 120, 60], [24, 2000, 200, 100], [26, 2300, 230, 115], [27, 1700, 170, 85], [28, 1600, 160, 80], [29, 2400, 240, 120], [31, 1800, 180, 90], [32, 1900, 190, 95], [33, 1400, 140, 70], [34, 1000, 100, 50], [36, 1300, 130, 65], [37, 2200, 220, 110], [38, 2800, 280, 140], [39, 1100, 110, 55]]
+	var expected_economy := [[1, 1600, 160, 80], [2, 800, 80, 40], [3, 850, 85, 40], [4, 1100, 110, 55], [6, 1000, 100, 50], [7, 750, 75, 35], [8, 1500, 150, 75], [9, 1700, 170, 85], [11, 1200, 120, 60], [12, 1300, 130, 65], [14, 2200, 220, 110], [16, 2100, 210, 105], [17, 1800, 180, 90], [18, 1000, 100, 50], [19, 1900, 190, 95], [21, 1800, 180, 90], [22, 1200, 120, 60], [24, 2000, 200, 100], [26, 2300, 230, 115], [27, 1700, 170, 85], [28, 1600, 160, 80], [29, 2400, 240, 120], [31, 1800, 180, 90], [32, 1900, 190, 95], [33, 1400, 140, 70], [34, 1000, 100, 50], [36, 1300, 130, 65], [37, 2200, 220, 110], [38, 2800, 280, 140], [39, 1100, 110, 55]]
 	for row in expected_economy:
 		var tile: Dictionary = Model.BOARD[int(row[0])]
 		_check(int(tile["price"]) == int(row[1]) and int(tile["rent"]) == int(row[2]) and int(tile["income"]) == int(row[3]), "%s buy/rent/income exactly match the requested economy" % str(tile["name"]))
@@ -112,11 +112,11 @@ func _test_move_math_and_start_crossing() -> void:
 	var bad := Model.calculate_move(40, 2)
 	_check(not bool(bad["ok"]), "invalid position rejected")
 	var game = _fresh()
-	game.state["tile_owners"][1] = 0
+	game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	game.state["players"][0]["position"] = 39
 	var roll: Dictionary = game.roll(0, 1)
 	_check(bool(roll["ok"]) and int(roll["to"]) == 0, "actual wrapped move arrives at start")
-	_check(int(game.state["players"][0]["balance"]) == 10540, "one start bonus and one Egypt periodic income paid once")
+	_check(int(game.state["players"][0]["balance"]) == 10580, "one start bonus and one Sudan periodic income paid once")
 	_check(int(game.state["players"][0]["completed_laps"]) == 1, "lap count increases once")
 	var start_entries := 0
 	for entry in game.state["ledger"]:
@@ -128,27 +128,27 @@ func _test_move_math_and_start_crossing() -> void:
 func _test_purchase_and_skip() -> void:
 	var game = _fresh()
 	var landing: Dictionary = game.roll(0, 1)
-	_check(int(landing["pending_purchase"]) == 1 and str(game.state["phase"]) == "pending_purchase", "free Egypt awaits a real purchase decision")
+	_check(int(landing["pending_purchase"]) == Model.SUDAN_TILE and str(game.state["phase"]) == "pending_purchase", "free Egypt awaits a real purchase decision")
 	var purchase: Dictionary = game.buy_pending_property()
-	_check(bool(purchase["ok"]) and int(game.state["tile_owners"][1]) == 0, "purchase transfers ownership")
-	_check(int(game.get_balance(0)) == 9200 and str(game.state["phase"]) == "actions", "purchase deducts exactly 800 once")
+	_check(bool(purchase["ok"]) and int(game.state["tile_owners"][Model.SUDAN_TILE]) == 0, "purchase transfers ownership")
+	_check(int(game.get_balance(0)) == 8400 and str(game.state["phase"]) == "actions", "purchase deducts exactly 1600 once")
 	var duplicate: Dictionary = game.buy_pending_property()
-	_check(not bool(duplicate["ok"]) and int(game.get_balance(0)) == 9200, "duplicate purchase rejected without another debit")
+	_check(not bool(duplicate["ok"]) and int(game.get_balance(0)) == 8400, "duplicate purchase rejected without another debit")
 	var poor = _fresh()
 	poor.state["players"][0]["balance"] = 500
 	poor.roll(0, 1)
 	var failed: Dictionary = poor.buy_pending_property()
-	_check(not bool(failed["ok"]) and int(poor.get_balance(0)) == 500 and int(poor.state["tile_owners"][1]) == -1, "insufficient purchase changes neither cash nor ownership")
+	_check(not bool(failed["ok"]) and int(poor.get_balance(0)) == 500 and int(poor.state["tile_owners"][Model.SUDAN_TILE]) == -1, "insufficient purchase changes neither cash nor ownership")
 	_check(bool(poor.skip_pending_purchase()["ok"]), "player may skip a free-property offer")
 
 func _test_rent_and_self_ownership() -> void:
 	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"])
-	game.state["tile_owners"][1] = 1
+	game.state["tile_owners"][Model.SUDAN_TILE] = 1
 	var landing: Dictionary = game.roll(0, 1)
 	_check(bool(landing["ok"]), "rent landing resolves")
-	_check(int(game.get_balance(0)) == 9920 and int(game.get_balance(1)) == 10080, "Egypt rent transfers 80 from visitor to owner")
+	_check(int(game.get_balance(0)) == 9840 and int(game.get_balance(1)) == 10160, "Sudan rent transfers 160 from visitor to owner")
 	var own = _fresh()
-	own.state["tile_owners"][1] = 0
+	own.state["tile_owners"][Model.SUDAN_TILE] = 0
 	var before := own.get_balance(0)
 	own.roll(0, 1)
 	_check(own.get_balance(0) == before and str(own.state["phase"]) == "actions", "owner pays no rent to self")
@@ -172,9 +172,16 @@ func _test_taxes_and_rest() -> void:
 	var jail = _fresh()
 	jail.state["players"][0]["position"] = 9
 	var jail_result: Dictionary = jail.roll(0, 1)
-	_check(int(jail.get_balance(0)) == 9500 and str(jail.state["phase"]) == "actions", "space 10 charges exactly 500 bail and releases the player")
-	_check(str(jail_result["messages"][0]).contains("كفالة السجن"), "jail landing describes bail")
+	_check(int(jail.get_balance(0)) == 10000 and str(jail.state["phase"]) == "jail" and int(jail.state["players"][0]["jail_turns_remaining"]) == 3, "space 10 enters jail for three turns without an automatic debit")
+	_check(str(jail_result["messages"][0]).contains("دخل"), "jail landing describes bail")
 	var bail_entries := 0
+	for entry in jail.state["ledger"]:
+		if str(entry.get("category", "")) == "jail_bail" and int(entry.get("amount", 0)) == -500:
+			bail_entries += 1
+	_check(bail_entries == 0, "jail entry does not charge bail before the player chooses")
+	var bail_payment: Dictionary = jail.pay_jail_bail(0)
+	_check(bool(bail_payment.get("ok", false)) and int(jail.get_balance(0)) == 9500 and str(jail.state["phase"]) == "actions", "paying bail releases the player exactly once")
+	bail_entries = 0
 	for entry in jail.state["ledger"]:
 		if str(entry.get("category", "")) == "jail_bail" and int(entry.get("amount", 0)) == -500:
 			bail_entries += 1
@@ -183,31 +190,31 @@ func _test_taxes_and_rest() -> void:
 	poor.state["players"][0]["position"] = 9
 	poor.state["players"][0]["balance"] = 100
 	poor.roll(0, 1)
-	_check(str(poor.state["phase"]) == "obligation" and int(poor.get_balance(0)) == 100, "unaffordable bail creates an obligation without negative balance")
+	_check(str(poor.state["phase"]) == "jail" and int(poor.get_balance(0)) == 100, "unaffordable bail creates an obligation without negative balance")
 
 func _test_groups_and_upgrades() -> void:
 	var game = _fresh()
 	for tile in game.group_tiles(0):
 		game.state["tile_owners"][tile] = 0
 	_check(game.owns_complete_group(0, 0), "complete ownership bonus activates")
-	_check(game.rent_for_tile(1) == 100, "full group gives exactly 25 percent rent bonus")
+	_check(game.rent_for_tile(Model.SUDAN_TILE) == 200, "full group gives exactly 25 percent rent bonus on Sudan")
 	game.state["phase"] = "actions"
 	var first: Dictionary = game.upgrade_property(0, 1)
 	_check(bool(first["ok"]) and int(first["cost"]) == 450, "completed group reduces first development cost by 10 percent")
-	_check(game.rent_for_tile(1) == 125, "level 1 rent rise is applied on top of group benefit")
-	_check(game.income_for_tile(1) == 44, "level 1 increases periodic income by 10 percent")
+	_check(game.rent_for_tile(Model.SUDAN_TILE) == 250, "level 1 rent rise is applied on top of group benefit")
+	_check(game.income_for_tile(Model.SUDAN_TILE) == 88, "level 1 increases periodic income by 10 percent")
 	game.state["tile_owners"][6] = -1
-	_check(not game.owns_complete_group(0, 0) and game.rent_for_tile(1) == 100, "group bonus is removed immediately when one state is lost")
+	_check(not game.owns_complete_group(0, 0) and game.rent_for_tile(Model.SUDAN_TILE) == 200, "group bonus is removed immediately when one state is lost")
 	var dev = _fresh()
-	dev.state["tile_owners"][1] = 0
+	dev.state["tile_owners"][Model.SUDAN_TILE] = 0
 	dev.state["phase"] = "actions"
 	var costs := [500, 800, 1200]
-	var rents := [100, 120, 140]
-	var incomes := [44, 48, 52]
+	var rents := [200, 240, 280]
+	var incomes := [88, 96, 104]
 	for level in range(3):
 		var outcome: Dictionary = dev.upgrade_property(0, 1)
 		_check(bool(outcome.get("ok", false)) and int(outcome.get("cost", -1)) == costs[level], "development %d price" % (level + 1))
-		_check(dev.rent_for_tile(1) == rents[level] and dev.income_for_tile(1) == incomes[level], "development %d affects rent and income" % (level + 1))
+		_check(dev.rent_for_tile(Model.SUDAN_TILE) == rents[level] and dev.income_for_tile(Model.SUDAN_TILE) == incomes[level], "development %d affects rent and income" % (level + 1))
 	var fourth: Dictionary = dev.upgrade_property(0, 1)
 	_check(not bool(fourth["ok"]) and int(dev.state["development"][1]) == 3, "cannot exceed level 3")
 	_check(int(dev.get_balance(0)) == 7500, "all three base upgrade costs deducted exactly")
@@ -227,37 +234,37 @@ func _test_groups_and_upgrades() -> void:
 
 func _test_investment_economy_and_sudan() -> void:
 	var game = _fresh()
-	game.state["tile_owners"][2] = 0
+	game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	game.state["phase"] = "actions"
-	_check(game.income_for_tile(2) == 80, "Sudan has no unpurchased project yield")
-	_check(not bool(game.buy_investment(0, "agriculture", 2)["ok"]), "investment cannot be bought away from a market square")
+	_check(game.income_for_tile(Model.SUDAN_TILE) == 80, "Sudan has no unpurchased project yield")
+	_check(not bool(game.buy_investment(0, "agriculture", Model.SUDAN_TILE)["ok"]), "investment cannot be bought away from a market square")
 	game.state["can_market"] = true
-	var agriculture: Dictionary = game.buy_investment(0, "agriculture", 2)
+	var agriculture: Dictionary = game.buy_investment(0, "agriculture", Model.SUDAN_TILE)
 	_check(bool(agriculture["ok"]) and int(agriculture["cost"]) == 700 and int(agriculture["income"]) == 90, "Sudan agriculture costs 700 and yields 70 plus its explicit 25 percent soil bonus")
-	_check(game.income_for_tile(2) == 170, "Sudan agricultural periodic income is actually applied")
-	var livestock: Dictionary = game.buy_investment(0, "livestock", 2)
-	_check(bool(livestock["ok"]) and int(livestock["income"]) == 90 and game.income_for_tile(2) == 260, "Sudan livestock is separate, purchasable, and adds 90 income")
-	var livestock_stage: Dictionary = game.buy_investment(0, "livestock", 2)
-	_check(bool(livestock_stage.get("ok", false)) and int(livestock_stage.get("cost", 0)) == 600 and int(livestock_stage.get("income", 0)) == 60 and game.income_for_tile(2) == 320, "Sudan livestock has a paid first expansion stage")
+	_check(game.income_for_tile(Model.SUDAN_TILE) == 170, "Sudan agricultural periodic income is actually applied")
+	var livestock: Dictionary = game.buy_investment(0, "livestock", Model.SUDAN_TILE)
+	_check(bool(livestock["ok"]) and int(livestock["income"]) == 90 and game.income_for_tile(Model.SUDAN_TILE) == 260, "Sudan livestock is separate, purchasable, and adds 90 income")
+	var livestock_stage: Dictionary = game.buy_investment(0, "livestock", Model.SUDAN_TILE)
+	_check(bool(livestock_stage.get("ok", false)) and int(livestock_stage.get("cost", 0)) == 600 and int(livestock_stage.get("income", 0)) == 60 and game.income_for_tile(Model.SUDAN_TILE) == 320, "Sudan livestock has a paid first expansion stage")
 	var stage_one_available := false
-	for option in game.investment_options(0, 2):
+	for option in game.investment_options(0, Model.SUDAN_TILE):
 		if str(option.get("type", "")) == "agriculture" and bool(option.get("expansion", false)) and int(option.get("expansion_level", 0)) == 1 and int(option.get("cost", 0)) == 500 and int(option.get("income", 0)) == 55:
 			stage_one_available = true
-	var stage_one: Dictionary = game.buy_investment(0, "agriculture", 2)
-	_check(stage_one_available and bool(stage_one.get("ok", false)) and game.income_for_tile(2) == 375, "Sudan agriculture stage 1 shows 500 cost, +55 yield, and updates periodic income")
+	var stage_one: Dictionary = game.buy_investment(0, "agriculture", Model.SUDAN_TILE)
+	_check(stage_one_available and bool(stage_one.get("ok", false)) and game.income_for_tile(Model.SUDAN_TILE) == 375, "Sudan agriculture stage 1 shows 500 cost, +55 yield, and updates periodic income")
 	var stage_two_available := false
-	for option in game.investment_options(0, 2):
+	for option in game.investment_options(0, Model.SUDAN_TILE):
 		if str(option.get("type", "")) == "agriculture" and bool(option.get("expansion", false)) and int(option.get("expansion_level", 0)) == 2 and int(option.get("cost", 0)) == 700 and int(option.get("income", 0)) == 70:
 			stage_two_available = true
-	var stage_two: Dictionary = game.buy_investment(0, "agriculture", 2)
-	_check(stage_two_available and bool(stage_two.get("ok", false)) and game.income_for_tile(2) == 445, "Sudan agriculture stage 2 increases yield and cost in defined steps")
-	_check(not bool(game.buy_investment(0, "agriculture", 2).get("ok", false)), "Sudan project cannot be expanded beyond its two offered stages")
+	var stage_two: Dictionary = game.buy_investment(0, "agriculture", Model.SUDAN_TILE)
+	_check(stage_two_available and bool(stage_two.get("ok", false)) and game.income_for_tile(Model.SUDAN_TILE) == 445, "Sudan agriculture stage 2 increases yield and cost in defined steps")
+	_check(not bool(game.buy_investment(0, "agriculture", Model.SUDAN_TILE).get("ok", false)), "Sudan project cannot be expanded beyond its two offered stages")
 	var no_sudan = _fresh()
-	no_sudan.state["tile_owners"][2] = 0
+	no_sudan.state["tile_owners"][Model.SUDAN_TILE] = 0
 	no_sudan.state["phase"] = "actions"
 	no_sudan.state["can_market"] = true
 	no_sudan.state["players"][0]["balance"] = 600
-	_check(not bool(no_sudan.buy_investment(0, "agriculture", 2)["ok"]) and no_sudan.income_for_tile(2) == 80, "investment cannot grant benefit without enough cash")
+	_check(not bool(no_sudan.buy_investment(0, "agriculture", Model.SUDAN_TILE)["ok"]) and no_sudan.income_for_tile(Model.SUDAN_TILE) == 80, "investment cannot grant benefit without enough cash")
 	var types := [{"kind": "energy", "tile": 8, "cost": 1000}, {"kind": "trade", "tile": 9, "cost": 900}, {"kind": "industry", "tile": 14, "cost": 1200}, {"kind": "technology", "tile": 16, "cost": 1300}, {"kind": "logistics", "tile": 2, "cost": 850}]
 	for row in types:
 		var item := _fresh()
@@ -266,7 +273,7 @@ func _test_investment_economy_and_sudan() -> void:
 		item.state["can_market"] = true
 		var bought: Dictionary = item.buy_investment(0, str(row["kind"]), int(row["tile"]))
 		_check(bool(bought.get("ok", false)) and int(bought.get("cost", -1)) == int(row["cost"]) and int(bought.get("income", 0)) > 0, "investment type %s has a real cost and yield" % str(row["kind"]))
-	var traits := [{"tile": 1, "kind": "agriculture", "income": 80}, {"tile": 1, "kind": "trade", "income": 103}, {"tile": 8, "kind": "energy", "income": 125}, {"tile": 9, "kind": "trade", "income": 108}, {"tile": 14, "kind": "industry", "income": 150}, {"tile": 16, "kind": "technology", "income": 156}, {"tile": 26, "kind": "industry", "income": 132}, {"tile": 38, "kind": "technology", "income": 143}]
+	var traits := [{"tile": 2, "kind": "agriculture", "income": 80}, {"tile": 2, "kind": "trade", "income": 103}, {"tile": 8, "kind": "energy", "income": 125}, {"tile": 9, "kind": "trade", "income": 108}, {"tile": 14, "kind": "industry", "income": 150}, {"tile": 16, "kind": "technology", "income": 156}, {"tile": 26, "kind": "industry", "income": 132}, {"tile": 38, "kind": "technology", "income": 143}]
 	for feature_row in traits:
 		var country_game = _fresh()
 		var trait_tile := int(feature_row["tile"])
@@ -290,7 +297,7 @@ func _test_investment_economy_and_sudan() -> void:
 			livestock_in_us = true
 	_check(not livestock_in_us, "United States yield bonus does not bypass Sudan-only livestock restriction")
 	var sold = game.sell_investment(0, 0)
-	_check(bool(sold["ok"]) and int(sold["refund"]) == 950 and game.income_for_tile(2) == 230, "expanded investment sale refunds 50 percent of all stages and removes only its yield")
+	_check(bool(sold["ok"]) and int(sold["refund"]) == 950 and game.income_for_tile(Model.SUDAN_TILE) == 230, "expanded investment sale refunds 50 percent of all stages and removes only its yield")
 
 func _test_event_deck_and_food_condition() -> void:
 	var deck_game = _fresh()
@@ -309,22 +316,22 @@ func _test_event_deck_and_food_condition() -> void:
 	without_farm.roll(0, 1, 0)
 	_check(int(without_farm.get_balance(0)) == 10080, "food demand event has only its base effect without Sudan farm")
 	var with_farm = _fresh()
-	with_farm.state["tile_owners"][2] = 0
-	with_farm.state["investments"].append({"type": "agriculture", "tile": 2, "owner": 0, "cost": 700, "income": 70, "purchased_turn": 0})
+	with_farm.state["tile_owners"][Model.SUDAN_TILE] = 0
+	with_farm.state["investments"].append({"type": "agriculture", "tile": Model.SUDAN_TILE, "owner": 0, "cost": 700, "income": 70, "purchased_turn": 0})
 	with_farm.state["players"][0]["position"] = 14
 	with_farm.roll(0, 1, 0)
 	_check(int(with_farm.get_balance(0)) == 10140, "food event pays its 80 base plus 60 only with Sudan agriculture")
 
 func _test_shortage_liquidation_and_bankruptcy() -> void:
 	var liquidate = _fresh()
-	liquidate.state["tile_owners"][1] = 0
+	liquidate.state["tile_owners"][Model.SUDAN_TILE] = 0
 	liquidate.state["players"][0]["balance"] = 0
 	liquidate.state["players"][0]["position"] = 4
 	liquidate.roll(0, 1)
 	_check(str(liquidate.state["phase"]) == "obligation" and int(liquidate.get_balance(0)) == 0, "tax shortfall pauses for liquidation without negative cash")
 	var sale: Dictionary = liquidate.sell_property(0, 1)
-	_check(bool(sale["ok"]) and int(sale["refund"]) == 400, "property liquidation returns 50 percent of original price")
-	_check(str(liquidate.state["phase"]) == "actions" and int(liquidate.get_balance(0)) == 100 and int(liquidate.state["tile_owners"][1]) == -1, "sale proceeds settle tax and release property")
+	_check(bool(sale["ok"]) and int(sale["refund"]) == 800, "property liquidation returns 50 percent of original price")
+	_check(str(liquidate.state["phase"]) == "actions" and int(liquidate.get_balance(0)) == 500 and int(liquidate.state["tile_owners"][Model.SUDAN_TILE]) == -1, "sale proceeds settle tax and release property")
 	var bankrupt = _fresh(Model.MODE_LOCAL, ["أ", "ب"])
 	bankrupt.state["players"][0]["balance"] = 0
 	bankrupt.state["players"][0]["position"] = 4
@@ -343,10 +350,10 @@ func _test_shortage_liquidation_and_bankruptcy() -> void:
 
 func _test_trade_rules() -> void:
 	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"])
-	game.state["tile_owners"][1] = 0
+	game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	game.state["tile_owners"][6] = 1
 	game.state["phase"] = "actions"
-	var proposal: Dictionary = game.propose_trade(0, 1, 1, 6, 50, 25)
+	var proposal: Dictionary = game.propose_trade(0, 1, Model.SUDAN_TILE, 6, 50, 25)
 	_check(bool(proposal.get("pending", false)) and str(game.state["phase"]) == "trade", "local trade pauses for the other human's response")
 	var accepted: Dictionary = game.respond_to_trade(1, true)
 	_check(bool(accepted.get("ok", false)) and int(game.state["tile_owners"][1]) == 1 and int(game.state["tile_owners"][6]) == 0, "accepted trade transfers both legal properties")
@@ -354,23 +361,23 @@ func _test_trade_rules() -> void:
 	var illegal: Dictionary = game.propose_trade(0, 1, 1, -1, 0, 0)
 	_check(not bool(illegal["ok"]), "trade cannot offer property not owned by proposer")
 	var reject_game = _fresh(Model.MODE_LOCAL, ["أ", "ب"])
-	reject_game.state["tile_owners"][1] = 0
+	reject_game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	reject_game.state["tile_owners"][6] = 1
 	reject_game.state["phase"] = "actions"
-	reject_game.propose_trade(0, 1, 1, 6)
+	reject_game.propose_trade(0, 1, Model.SUDAN_TILE, 6)
 	var rejected: Dictionary = reject_game.respond_to_trade(1, false)
 	_check(bool(rejected["ok"]) and int(reject_game.state["tile_owners"][1]) == 0, "rejected trade changes no ownership")
 
 func _test_trade_moves_investment_bundle() -> void:
 	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"])
-	game.state["tile_owners"][2] = 0
+	game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	game.state["tile_owners"][6] = 1
-	game.state["investments"].append({"type": "agriculture", "tile": 2, "owner": 0, "cost": 700, "income": 70, "purchased_turn": 1})
+	game.state["investments"].append({"type": "agriculture", "tile": Model.SUDAN_TILE, "owner": 0, "cost": 700, "income": 70, "purchased_turn": 1})
 	game.state["phase"] = "actions"
-	var proposal: Dictionary = game.propose_trade(0, 1, 2, 6)
+	var proposal: Dictionary = game.propose_trade(0, 1, Model.SUDAN_TILE, 6)
 	var accepted: Dictionary = game.respond_to_trade(1, true) if bool(proposal.get("pending", false)) else {}
-	_check(bool(accepted.get("ok", false)) and int(game.state["tile_owners"][2]) == 1, "accepted country trade transfers the requested title")
-	_check(int(game.state["investments"][0]["owner"]) == 1 and game.income_for_tile(2) > 80, "investment and its yield move with the country instead of being stranded")
+	_check(bool(accepted.get("ok", false)) and int(game.state["tile_owners"][Model.SUDAN_TILE]) == 1, "accepted country trade transfers the requested title")
+	_check(int(game.state["investments"][0]["owner"]) == 1 and game.income_for_tile(Model.SUDAN_TILE) > 80, "investment and its yield move with the country instead of being stranded")
 
 func _test_computer_decisions() -> void:
 	for difficulty in ["easy", "medium", "hard"]:
@@ -382,9 +389,9 @@ func _test_computer_decisions() -> void:
 	game.state["turn"] = 1
 	var result: Dictionary = game.roll(1, 1)
 	_check(bool(result["ok"]) and int(game.state["tile_owners"][1]) == 1, "computer is a real controller that buys an affordable country")
-	_check(int(game.get_balance(1)) == 9200, "computer purchase uses only its real balance")
+	_check(int(game.get_balance(1)) == 8400, "computer purchase uses only its real balance")
 	game.state["phase"] = "actions"
-	game.state["tile_owners"][2] = 1
+	game.state["tile_owners"][Model.SUDAN_TILE] = 1
 	game.state["players"][1]["balance"] = 5000
 	game.state["can_market"] = true
 	var decisions: Array[String] = game.run_computer_actions(1)
@@ -396,24 +403,24 @@ func _test_computer_decisions() -> void:
 	var market_guard = _fresh(Model.MODE_COMPUTER, [], "hard")
 	market_guard.state["turn"] = 1
 	market_guard.state["phase"] = "actions"
-	market_guard.state["tile_owners"][2] = 1
+	market_guard.state["tile_owners"][Model.SUDAN_TILE] = 1
 	market_guard.run_computer_actions(1)
 	_check(market_guard.state["investments"].is_empty(), "computer does not buy investments off-market even when it owns Sudan")
 	var cpu_trade = _fresh(Model.MODE_COMPUTER, [], "hard")
-	cpu_trade.state["tile_owners"][1] = 1
+	cpu_trade.state["tile_owners"][Model.SUDAN_TILE] = 1
 	cpu_trade.state["phase"] = "actions"
-	var offer := {"from": 0, "to": 1, "give_tile": -1, "ask_tile": 1, "give_cash": 1000, "ask_cash": 0}
+	var offer := {"from": 0, "to": 1, "give_tile": -1, "ask_tile": Model.EGYPT_TILE, "give_cash": 1000, "ask_cash": 0}
 	_check(cpu_trade.computer_accepts_trade(1, offer), "computer evaluates a valuable and solvent trade")
-	_check(not cpu_trade.computer_accepts_trade(1, {"from": 0, "to": 1, "give_tile": -1, "ask_tile": 1, "give_cash": 1, "ask_cash": 0}), "computer declines a clearly unfavorable trade")
+	_check(not cpu_trade.computer_accepts_trade(1, {"from": 0, "to": 1, "give_tile": -1, "ask_tile": Model.EGYPT_TILE, "give_cash": 1, "ask_cash": 0}), "computer declines a clearly unfavorable trade")
 
 func _test_match_end_and_net_worth() -> void:
 	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"], "medium", "short")
 	_check(int(game.state["round_limit"]) == 8, "short match has a distinct actual round limit")
-	game.state["tile_owners"][1] = 0
+	game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	game.state["development"][1] = 2
 	game.state["investments"].append({"type": "agriculture", "tile": 1, "owner": 0, "cost": 700, "income": 70, "purchased_turn": 1})
 	var worth: Dictionary = game.get_net_worth(0)
-	_check(int(worth["net_worth"]) == 10000 + 400 + 650 + 350, "net worth uses cash plus 50 percent property, development, and investment value")
+	_check(int(worth["net_worth"]) == 10000 + 800 + 650 + 350, "net worth uses cash plus 50 percent property, development, and investment value")
 	game.state["round_number"] = 8
 	game.state["phase"] = "actions"
 	game.state["turn"] = 1
@@ -442,16 +449,16 @@ func _test_full_local_match_simulation() -> void:
 
 func _test_save_restore_and_corruption() -> void:
 	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب", "ج"])
-	game.state["tile_owners"][2] = 2
-	game.state["development"][2] = 1
-	game.state["investments"].append({"type": "agriculture", "tile": 2, "owner": 2, "cost": 700, "income": 70, "purchased_turn": 1})
+	game.state["tile_owners"][Model.SUDAN_TILE] = 2
+	game.state["development"][Model.SUDAN_TILE] = 1
+	game.state["investments"].append({"type": "agriculture", "tile": Model.SUDAN_TILE, "owner": 2, "cost": 700, "income": 70, "purchased_turn": 1})
 	game.state["turn"] = 2
 	game.state["phase"] = "await_roll"
 	var saved: Dictionary = game.save_to(TEST_SAVE)
-	var restored = Model.new()
+	var restored: Model = Model.new()
 	var loaded: Dictionary = restored.load_from(TEST_SAVE)
 	_check(bool(saved.get("ok", false)) and bool(loaded.get("ok", false)), "valid match and investments save and restore")
-	_check(int(restored.state["turn"]) == 2 and int(restored.state["tile_owners"][2]) == 2 and int(restored.state["development"][2]) == 1, "player turn, Sudan title and development persist")
+	_check(int(restored.state["turn"]) == 2 and int(restored.state["tile_owners"][Model.SUDAN_TILE]) == 2 and int(restored.state["development"][Model.SUDAN_TILE]) == 1, "player turn, Sudan title and development persist")
 	_check(restored.state["investments"].size() == 1 and int(restored.get_balance(2)) == 10000, "investment and player balances persist")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 	var file := FileAccess.open(CORRUPT_SAVE, FileAccess.WRITE)
@@ -472,6 +479,6 @@ func _test_legacy_migration() -> void:
 	var game := Model.new()
 	var result: Dictionary = game.load_from(LEGACY_SAVE)
 	_check(bool(result.get("ok", false)) and bool(result.get("migrated", false)), "version 2 save migrates to new board")
-	_check(int(game.state["tile_owners"][1]) == 0 and int(game.state["tile_owners"][8]) == 1, "shared countries retain their actual owners")
+	_check(int(game.state["tile_owners"][Model.EGYPT_TILE]) == 0 and int(game.state["tile_owners"][8]) == 1, "shared countries retain their actual owners")
 	_check(str(game.state["phase"]) == "await_roll" and Model.validate_state(game.state), "migrated match is structurally valid and resumable")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(LEGACY_SAVE))

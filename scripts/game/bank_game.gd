@@ -1,7 +1,7 @@
 extends RefCounted
 class_name BankGame
 
-const SAVE_VERSION := 3
+const SAVE_VERSION := 4
 const STARTING_CASH := 10000
 const LAP_BONUS := 500
 const TILE_COUNT := 40
@@ -11,12 +11,15 @@ const MODE_LOCAL := "local"
 const PLAYER_HUMAN := 0
 const PLAYER_CPU := 1
 const SAVE_PATH := "user://luckbank-save.json"
+const SUDAN_TILE := 1
+const EGYPT_TILE := 2
+const JAIL_TURNS := 3
 const DEV_COSTS := [500, 800, 1200]
 const INVESTMENT_DATA := {
-	"agriculture": {"name": "الزراعة", "cost": 700, "income": 70, "tiles": [1, 2]},
-	"livestock": {"name": "الثروة الحيوانية", "cost": 900, "income": 90, "tiles": [2]},
+	"agriculture": {"name": "الزراعة", "cost": 700, "income": 70, "tiles": [SUDAN_TILE, EGYPT_TILE]},
+	"livestock": {"name": "الثروة الحيوانية", "cost": 900, "income": 90, "tiles": [SUDAN_TILE]},
 	"energy": {"name": "الطاقة", "cost": 1000, "income": 100, "tiles": [8]},
-	"trade": {"name": "التجارة والخدمات", "cost": 900, "income": 90, "tiles": [1, 9]},
+	"trade": {"name": "التجارة والخدمات", "cost": 900, "income": 90, "tiles": [EGYPT_TILE, 9]},
 	"industry": {"name": "الصناعة", "cost": 1200, "income": 120, "tiles": [14, 26]},
 	"technology": {"name": "التقنية", "cost": 1300, "income": 130, "tiles": [16, 26]},
 	"logistics": {"name": "النقل والخدمات اللوجستية", "cost": 850, "income": 85, "tiles": []}
@@ -25,8 +28,8 @@ const INVESTMENT_DATA := {
 # Group membership follows country order: six fixed sets of five countries.
 const BOARD := [
 	{"id": 0, "type": "start", "name": "البداية", "short": "البداية"},
-	{"id": 1, "type": "country", "name": "مصر", "price": 800, "rent": 80, "income": 40, "group": 0, "feature": "التجارة والزراعة"},
-	{"id": 2, "type": "country", "name": "السودان", "price": 1600, "rent": 160, "income": 80, "group": 0, "feature": "الزراعة والثروة الحيوانية"},
+	{"id": 1, "type": "country", "name": "السودان", "price": 1600, "rent": 160, "income": 80, "group": 0, "feature": "الزراعة والثروة الحيوانية"},
+	{"id": 2, "type": "country", "name": "مصر", "price": 800, "rent": 80, "income": 40, "group": 0, "feature": "التجارة والزراعة"},
 	{"id": 3, "type": "country", "name": "المغرب", "price": 850, "rent": 85, "income": 40, "group": 0},
 	{"id": 4, "type": "country", "name": "جنوب أفريقيا", "price": 1100, "rent": 110, "income": 55, "group": 0},
 	{"id": 5, "type": "tax", "name": "ضريبة الخدمات العامة", "amount": 300},
@@ -151,7 +154,8 @@ func new_game(player_name: String = "اللاعب", mode: String = MODE_COMPUTER
 	for index in range(player_names.size()):
 		var controller := "computer" if clean_mode == MODE_COMPUTER and index == PLAYER_CPU else "human"
 		players.append({"id": index, "name": player_names[index], "controller": controller,
-			"balance": STARTING_CASH, "position": 0, "completed_laps": 0, "steps_moved": 0,
+				"balance": STARTING_CASH, "position": 0, "completed_laps": 0, "steps_moved": 0,
+				"jail_turns_remaining": 0,
 			"alive": true, "debt": 0, "difficulty": _clean_difficulty(difficulty)})
 	var owners: Array[int] = []
 	var development: Array[int] = []
@@ -294,7 +298,7 @@ func _resolve_landing(player_id: int, tile_index: int, forced_event_index: int) 
 			state["last_event"] = card.duplicate(true)
 			var event_amount := int(card.get("amount", 0))
 			var food_bonus := 0
-			if bool(card.get("food", false)) and has_investment(player_id, "agriculture", 2):
+			if bool(card.get("food", false)) and has_investment(player_id, "agriculture", SUDAN_TILE):
 				food_bonus = 60 if event_amount >= 0 else 35
 			var net_amount := event_amount + food_bonus
 			if net_amount >= 0:
@@ -315,11 +319,11 @@ func _resolve_landing(player_id: int, tile_index: int, forced_event_index: int) 
 		"rest":
 			result["message"] = "راحة اقتصادية: لا ضريبة ولا مكافأة تلقائية؛ لم يتغير الرصيد."
 		"jail":
-			var bail := int(tile.get("bail", 500))
-			if _commit_payment(player_id, bail, "كفالة الخروج من السجن", -1, "jail_bail"):
-				result["message"] = "دفع %s كفالة السجن وقدرها %s وخرج منه." % [str(player["name"]), _cash(bail)]
-			else:
-				result["message"] = "لا يكفي الرصيد لكفالة السجن؛ سوِّ الالتزام أو صفِّ أصلًا."
+			player["jail_turns_remaining"] = JAIL_TURNS
+			state["phase"] = "jail"
+			state["busy"] = true
+			state["pending_obligation"] = {}
+			result["message"] = "دخل %s السجن. العقوبة %d أدوار، ويمكن دفع كفالة %s للخروج فورًا." % [str(player["name"]), JAIL_TURNS, _cash(int(tile.get("bail", 500)))]
 		_:
 			result["message"] = "مربع غير معروف؛ لم تُجرَ معاملة مالية."
 	return result
@@ -401,12 +405,12 @@ func income_for_tile(tile_index: int) -> int:
 	var result := int(BOARD[tile_index]["income"]) * (100 + level * 10) / 100
 	for investment in state.get("investments", []):
 		if int(investment.get("owner", -1)) == owner and int(investment.get("tile", -1)) == tile_index:
-				var investment_type := str(investment.get("type", ""))
-				var base_yield := int(investment.get("income", 0))
-				var extra_percent := _special_investment_percent(tile_index, investment_type)
-				result += base_yield + int(base_yield * extra_percent / 100.0)
-				if tile_index == 2 and investment_type == "agriculture":
-					result += int(BOARD[tile_index]["income"] * 0.25)
+			var investment_type := str(investment.get("type", ""))
+			var base_yield := int(investment.get("income", 0))
+			var extra_percent := _special_investment_percent(tile_index, investment_type)
+			result += base_yield + int(base_yield * extra_percent / 100.0)
+			if tile_index == SUDAN_TILE and investment_type == "agriculture":
+				result += int(BOARD[tile_index]["income"] * 0.25)
 	return result
 
 func rent_for_tile(tile_index: int) -> int:
@@ -424,9 +428,9 @@ func rent_for_tile(tile_index: int) -> int:
 func _special_investment_percent(tile_index: int, investment_type: String) -> int:
 	match tile_index:
 		1:
-			return 15 if investment_type in ["agriculture", "trade"] else 0
+				return 0
 		2:
-			return 0
+				return 15 if investment_type in ["agriculture", "trade"] else 0
 		8:
 			return 25 if investment_type == "energy" else 0
 		9:
@@ -547,12 +551,12 @@ func investment_options(player_id: int, tile_index: int) -> Array[Dictionary]:
 			if existing_index < 0:
 				var extra := _special_investment_percent(tile_index, str(kind))
 				var base_income := int(info["income"])
-				var sudan_bonus := int(BOARD[tile_index]["income"] * 0.25) if tile_index == 2 and str(kind) == "agriculture" else 0
+				var sudan_bonus := int(BOARD[tile_index]["income"] * 0.25) if tile_index == SUDAN_TILE and str(kind) == "agriculture" else 0
 				var total_income := base_income + int(base_income * extra / 100.0) + sudan_bonus
 				result.append({"type": str(kind), "name": str(info["name"]), "tile": tile_index,
 					"cost": int(info["cost"]), "income": total_income,
 					"extra_percent": extra, "payback": int(ceil(float(info["cost"]) / float(maxi(1, total_income))) )})
-			elif tile_index == 2 and str(kind) in ["agriculture", "livestock"]:
+			elif tile_index == SUDAN_TILE and str(kind) in ["agriculture", "livestock"]:
 				var current_level := int(investments[existing_index].get("level", 0))
 				if current_level < 2:
 					var next_level := current_level + 1
@@ -576,7 +580,7 @@ func buy_investment(player_id: int, investment_type: String, tile_index: int) ->
 		return _failure("نوع الاستثمار غير معروف.")
 	if investment_type != "logistics" and tile_index != 38 and not tile_index in info["tiles"]:
 		return _failure("هذا الاستثمار غير مرتبط بهذه الدولة.")
-	if investment_type == "livestock" and tile_index != 2:
+	if investment_type == "livestock" and tile_index != SUDAN_TILE:
 		return _failure("استثمار الثروة الحيوانية متاح للسودان فقط.")
 	var investments: Array = state.get("investments", [])
 	var existing_index := -1
@@ -585,7 +589,7 @@ func buy_investment(player_id: int, investment_type: String, tile_index: int) ->
 			existing_index = investment_index
 			break
 	if existing_index >= 0:
-		if tile_index != 2 or investment_type not in ["agriculture", "livestock"]:
+		if tile_index != SUDAN_TILE or investment_type not in ["agriculture", "livestock"]:
 			return _failure("تم شراء هذا الاستثمار لهذه الدولة من قبل.")
 		var current_level := int(investments[existing_index].get("level", 0))
 		if current_level >= 2:
@@ -612,7 +616,7 @@ func buy_investment(player_id: int, investment_type: String, tile_index: int) ->
 		return _failure("الرصيد غير كافٍ؛ التكلفة %s." % _cash(cost))
 	var base_income := int(info["income"])
 	var special := _special_investment_percent(tile_index, investment_type)
-	var sudan_bonus := int(BOARD[tile_index]["income"] * 0.25) if tile_index == 2 and investment_type == "agriculture" else 0
+	var sudan_bonus := int(BOARD[tile_index]["income"] * 0.25) if tile_index == SUDAN_TILE and investment_type == "agriculture" else 0
 	var income := base_income + int(base_income * special / 100.0) + sudan_bonus
 	if not _commit_payment(player_id, cost, "شراء استثمار " + str(info["name"]) + " في " + str(BOARD[tile_index]["name"]), -1, "investment"):
 		return _failure("تعذر دفع قيمة الاستثمار.")
@@ -650,8 +654,26 @@ func sell_investment(player_id: int, investment_index: int) -> Dictionary:
 	return {"ok": true, "refund": refund, "message": "تم بيع الاستثمار واسترداد %s (50 بالمئة من التكلفة)." % _cash(refund)}
 
 func end_turn(player_id: int) -> Dictionary:
-	if not _can_act(player_id, ["actions"]):
+	var phase := str(state.get("phase", ""))
+	if not _can_act(player_id, ["actions", "jail"]):
 		return _failure("أكمل الشراء أو الالتزام المعلق قبل إنهاء الدور.")
+	if phase == "jail":
+		var jailed_player: Dictionary = state["players"][player_id]
+		collect_periodic_income(player_id)
+		jailed_player["jail_turns_remaining"] = maxi(0, int(jailed_player.get("jail_turns_remaining", JAIL_TURNS)) - 1)
+		var released := int(jailed_player["jail_turns_remaining"]) == 0
+		var next_from_jail := _next_alive_player(player_id)
+		state["busy"] = false
+		state["pending_property"] = -1
+		state["turn_number"] = int(state.get("turn_number", 1)) + 1
+		if next_from_jail <= player_id:
+			state["round_number"] = int(state.get("round_number", 1)) + 1
+		state["turn"] = next_from_jail
+		state["phase"] = "await_roll"
+		state["can_market"] = false
+		state["last_message"] = ("انتهت عقوبة %s وخرج من السجن." if released else "بقي على %s في السجن %d دورًا.") % [str(jailed_player["name"]), int(jailed_player["jail_turns_remaining"])]
+		_add_log(str(state["last_message"]))
+		return {"ok": true, "next_player": next_from_jail, "round": int(state["round_number"]), "game_over": false, "message": str(state["last_message"]), "released": released}
 	state["busy"] = false
 	state["pending_property"] = -1
 	var next := _next_alive_player(player_id)
@@ -666,6 +688,20 @@ func end_turn(player_id: int) -> Dictionary:
 	if int(state["round_number"]) > int(state["round_limit"]):
 		_finish_match("اكتمل حد الجولات (%d)." % int(state["round_limit"]))
 	return {"ok": true, "next_player": next, "round": int(state["round_number"]), "game_over": not bool(state["active"]), "message": str(state["last_message"])}
+
+func pay_jail_bail(player_id: int) -> Dictionary:
+	if not _can_act(player_id, ["jail"]):
+		return _failure("لا توجد كفالة سجن مستحقة الآن.")
+	var bail := int(BOARD[10].get("bail", 500))
+	if not _commit_payment(player_id, bail, "كفالة الخروج من السجن", -1, "jail_bail"):
+		return _failure("لا يكفي الرصيد لكفالة السجن؛ صفِّ أصلًا لتسوية الالتزام.")
+	state["players"][player_id]["jail_turns_remaining"] = 0
+	state["phase"] = "actions"
+	state["busy"] = false
+	state["pending_obligation"] = {}
+	state["last_message"] = "دفع %s كفالة السجن وقدرها %s وخرج منه." % [str(state["players"][player_id]["name"]), _cash(bail)]
+	_add_log(str(state["last_message"]))
+	return {"ok": true, "message": state["last_message"], "amount": bail}
 
 func _next_alive_player(after_id: int) -> int:
 	var players: Array = state.get("players", [])
@@ -740,7 +776,7 @@ func run_computer_actions(player_id: int) -> Array[String]:
 	return decisions
 
 func owns_sudan(player_id: int) -> bool:
-	return _valid_player_id(player_id) and int(state.get("tile_owners", [])[2]) == player_id
+	return _valid_player_id(player_id) and int(state.get("tile_owners", [])[SUDAN_TILE]) == player_id
 
 func resolve_computer_obligation(player_id: int) -> Array[String]:
 	var decisions: Array[String] = []
@@ -1122,7 +1158,7 @@ func load_from(path: String = SAVE_PATH) -> Dictionary:
 		return {"ok": false, "corrupt": true, "message": "ملف الحفظ تالف أو غير مكتمل."}
 	var payload: Dictionary = parser.data
 	var version := int(payload.get("version", -1))
-	if version not in [1, 2, SAVE_VERSION] or typeof(payload.get("state", null)) != TYPE_DICTIONARY:
+	if version not in [1, 2, 3, SAVE_VERSION] or typeof(payload.get("state", null)) != TYPE_DICTIONARY:
 		return {"ok": false, "corrupt": true, "message": "إصدار أو بنية ملف الحفظ غير صالحة."}
 	var candidate: Dictionary = payload["state"].duplicate(true)
 	var migrated := version != SAVE_VERSION
@@ -1130,6 +1166,8 @@ func load_from(path: String = SAVE_PATH) -> Dictionary:
 		candidate = _migrate_v1_state(candidate)
 	elif version == 2:
 		candidate = _migrate_v2_state(candidate)
+	elif version == 3:
+		candidate = _migrate_v3_state(candidate)
 	if not validate_state(candidate):
 		return {"ok": false, "corrupt": true, "message": "بيانات المباراة المحفوظة غير متوافقة أو تالفة."}
 	state = candidate.duplicate(true)
@@ -1150,6 +1188,7 @@ func _migrate_v1_state(old_state: Dictionary) -> Dictionary:
 	for i in range(2):
 		migrated_game.state["players"][i]["balance"] = maxi(0, int(players[i].get("balance", STARTING_CASH)))
 		migrated_game.state["players"][i]["position"] = posmod(int(players[i].get("position", 0)) * TILE_COUNT / 12, TILE_COUNT)
+		migrated_game.state["players"][i]["jail_turns_remaining"] = 0
 	migrated_game.state["turn"] = clampi(int(old_state.get("turn", 0)), 0, 1)
 	return migrated_game.state
 
@@ -1170,6 +1209,7 @@ func _migrate_v2_state(old_state: Dictionary) -> Dictionary:
 		migrated_game.state["players"][i]["position"] = posmod(int(old_players[i].get("position", 0)) * TILE_COUNT / 12, TILE_COUNT)
 		migrated_game.state["players"][i]["completed_laps"] = int(old_players[i].get("completed_laps", 0))
 		migrated_game.state["players"][i]["steps_moved"] = int(old_players[i].get("steps_moved", 0))
+		migrated_game.state["players"][i]["jail_turns_remaining"] = clampi(int(old_players[i].get("jail_turns_remaining", 0)), 0, JAIL_TURNS)
 	var old_owners: Variant = old_state.get("tile_owners", [])
 	if typeof(old_owners) == TYPE_ARRAY:
 		for old_index in range(mini(old_owners.size(), 12)):
@@ -1188,6 +1228,13 @@ func _migrate_v2_state(old_state: Dictionary) -> Dictionary:
 	migrated_game.state["phase"] = "await_roll"
 	migrated_game.state["log"] = ["رُحّلت مباراة قديمة إلى لوحة 40 خانة؛ الدول غير الموجودة حُولت إلى 50% من سعرها نقدًا."]
 	return migrated_game.state
+
+func _migrate_v3_state(old_state: Dictionary) -> Dictionary:
+	var migrated := old_state.duplicate(true)
+	for player in migrated.get("players", []):
+		if typeof(player) == TYPE_DICTIONARY:
+			player["jail_turns_remaining"] = clampi(int(player.get("jail_turns_remaining", 0)), 0, JAIL_TURNS)
+	return migrated
 
 static func BOARD_OLD_NAME(index: int) -> String:
 	var old_names := ["البداية", "مصر", "مفاجأة", "السعودية", "الإمارات", "الضريبة", "المغرب", "مكافأة", "مفاجأة", "الأردن", "العراق", "راحة"]
@@ -1224,7 +1271,7 @@ static func validate_state(candidate: Dictionary) -> bool:
 		if typeof(players[i]) != TYPE_DICTIONARY:
 			return false
 		var person: Dictionary = players[i]
-		for key in ["id", "name", "controller", "balance", "position", "completed_laps", "steps_moved", "alive", "debt"]:
+		for key in ["id", "name", "controller", "balance", "position", "completed_laps", "steps_moved", "jail_turns_remaining", "alive", "debt"]:
 			if not person.has(key):
 				return false
 		if int(person["id"]) != i or typeof(person["name"]) != TYPE_STRING or str(person["name"]).strip_edges().is_empty():
@@ -1235,7 +1282,7 @@ static func validate_state(candidate: Dictionary) -> bool:
 			return false
 		if mode == MODE_COMPUTER and str(person["controller"]) != ("human" if i == 0 else "computer"):
 			return false
-		if int(person["balance"]) < 0 or int(person["position"]) < 0 or int(person["position"]) >= TILE_COUNT or int(person["debt"]) < 0:
+		if int(person["balance"]) < 0 or int(person["position"]) < 0 or int(person["position"]) >= TILE_COUNT or int(person["debt"]) < 0 or int(person["jail_turns_remaining"]) < 0 or int(person["jail_turns_remaining"]) > JAIL_TURNS:
 			return false
 		if typeof(person["alive"]) != TYPE_BOOL:
 			return false
@@ -1245,7 +1292,7 @@ static func validate_state(candidate: Dictionary) -> bool:
 		if str(BOARD[i]["type"]) != "country" and (int(owners[i]) != -1 or int(development[i]) != 0):
 			return false
 	var phase := str(candidate.get("phase", ""))
-	if phase not in ["await_roll", "pending_purchase", "obligation", "trade", "actions", "finished"]:
+	if phase not in ["await_roll", "pending_purchase", "obligation", "trade", "jail", "actions", "finished"]:
 		return false
 	var turn_value: Variant = candidate.get("turn", -1)
 	if typeof(turn_value) not in [TYPE_INT, TYPE_FLOAT] or not is_equal_approx(float(turn_value), float(int(turn_value))) or int(turn_value) < 0 or int(turn_value) >= players.size():

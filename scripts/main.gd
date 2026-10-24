@@ -7,17 +7,17 @@ const LOCALE_FILE := "res://localization/luckbank.json"
 const SAVE_FILE := "user://luckbank-save.json"
 const SETTINGS_FILE := "user://luckbank-settings.cfg"
 
-const BG := Color("#101820")
-const PANEL := Color("#1c2a34")
-const PANEL_ALT := Color("#22333e")
-const TEXT := Color("#f3f0e9")
-const MUTED := Color("#b7c2c8")
-const GOLD := Color("#e6bb62")
-const GREEN := Color("#71c5a2")
-const BLUE := Color("#77b8e8")
-const RED := Color("#e47e72")
-const GROUP_COLORS := [Color("#4c9e86"), Color("#4c83a8"), Color("#916eae"), Color("#bc8754"), Color("#aa687c"), Color("#759552")]
-const PLAYER_COLORS := [Color("#e6bb62"), Color("#77b8e8"), Color("#71c5a2"), Color("#e47e72")]
+const BG := Color("#0b1220")
+const PANEL := Color("#172333")
+const PANEL_ALT := Color("#203047")
+const TEXT := Color("#f7f5ef")
+const MUTED := Color("#a9b7c7")
+const GOLD := Color("#f1c66a")
+const GREEN := Color("#5bd1a4")
+const BLUE := Color("#6bb7ff")
+const RED := Color("#f07f75")
+const GROUP_COLORS := [Color("#168a78"), Color("#246a9b"), Color("#7654a8"), Color("#a46b35"), Color("#9b4563"), Color("#597d42")]
+const PLAYER_COLORS := [Color("#f1c66a"), Color("#6bb7ff"), Color("#5bd1a4"), Color("#f07f75")]
 const PLAYER_SYMBOLS := ["●١", "◆٢", "▲٣", "■٤"]
 const LOCALE_IDS := ["ar", "en", "es", "fr"]
 
@@ -29,10 +29,18 @@ class DiceFace extends Control:
 		queue_redraw()
 
 	func _draw() -> void:
-		var inset := minf(size.x, size.y) * 0.12
+		var inset := minf(size.x, size.y) * 0.10
 		var die_rect := Rect2(Vector2(inset, inset), size - Vector2(inset * 2.0, inset * 2.0))
-		draw_rect(die_rect, Color("#fffaf0"), true)
-		draw_rect(die_rect, Color("#1b2932"), false, maxf(1.5, size.x * 0.035))
+		var shadow := StyleBoxFlat.new()
+		shadow.bg_color = Color("#000000", 0.32)
+		shadow.set_corner_radius_all(int(size.x * 0.16))
+		draw_style_box(shadow, Rect2(die_rect.position + Vector2(0, size.y * 0.035), die_rect.size))
+		var die := StyleBoxFlat.new()
+		die.bg_color = Color("#fffdf6")
+		die.border_color = Color("#d8b65f")
+		die.set_border_width_all(maxi(2, int(size.x * 0.035)))
+		die.set_corner_radius_all(int(size.x * 0.16))
+		draw_style_box(die, die_rect)
 		var left := Vector2(0.25, 0.25)
 		var middle_left := Vector2(0.25, 0.5)
 		var right := Vector2(0.75, 0.75)
@@ -48,9 +56,9 @@ class DiceFace extends Control:
 			4: points = [left, top_right, bottom_left, right]
 			5: points = [left, top_right, center, bottom_left, right]
 			6: points = [Vector2(0.25, 0.25), middle_left, bottom_left, top_right, middle_right, right]
-		var radius := minf(die_rect.size.x, die_rect.size.y) * 0.075
+		var radius := minf(die_rect.size.x, die_rect.size.y) * 0.085
 		for point in points:
-			draw_circle(die_rect.position + Vector2(point.x * die_rect.size.x, point.y * die_rect.size.y), radius, Color("#18242d"))
+			draw_circle(die_rect.position + Vector2(point.x * die_rect.size.x, point.y * die_rect.size.y), radius, Color("#17304b"))
 
 class PlayerToken extends Control:
 	var token_color := Color.WHITE
@@ -85,6 +93,47 @@ class PlayerToken extends Control:
 			draw_rect(base, token_color, true)
 			draw_rect(base, outline, false, 1.3)
 
+class CornerArt extends Control:
+	var art_kind := ""
+
+	func configure(kind: String) -> void:
+		art_kind = kind
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var s := minf(size.x, size.y)
+		var ink := Color("#f7e7bd")
+		var accent := Color("#f1c66a")
+		if art_kind == "start":
+			draw_circle(c, s * 0.34, Color("#f1c66a", 0.18))
+			draw_arc(c, s * 0.32, 0.0, TAU, 24, accent, maxf(2.0, s * 0.035), true)
+			draw_line(c - Vector2(0, s * 0.22), c + Vector2(0, s * 0.22), ink, maxf(2.0, s * 0.035), true)
+			draw_line(c - Vector2(s * 0.22, 0), c + Vector2(s * 0.22, 0), ink, maxf(2.0, s * 0.035), true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s * 0.26), c + Vector2(s * 0.24, -s * 0.18), c + Vector2(0, -s * 0.10)]), accent)
+		elif art_kind == "jail":
+			var frame := Rect2(c - Vector2(s * 0.34, s * 0.31), Vector2(s * 0.68, s * 0.62))
+			draw_rect(frame, Color("#f07f75", 0.18), true)
+			draw_rect(frame, ink, false, maxf(2.0, s * 0.035))
+			for bar in range(4):
+				var x := frame.position.x + s * (0.12 + bar * 0.17)
+				draw_line(Vector2(x, frame.position.y), Vector2(x, frame.end.y), accent, maxf(2.0, s * 0.03), true)
+			draw_circle(Vector2(c.x, frame.position.y + s * 0.18), s * 0.07, ink)
+			draw_arc(Vector2(c.x, frame.position.y + s * 0.38), s * 0.14, PI, TAU, 12, ink, maxf(2.0, s * 0.03), true)
+		elif art_kind == "rest":
+			var cup := Rect2(c - Vector2(s * 0.25, s * 0.13), Vector2(s * 0.42, s * 0.27))
+			draw_rect(cup, Color("#f1c66a", 0.28), true)
+			draw_rect(cup, ink, false, maxf(2.0, s * 0.035))
+			draw_arc(Vector2(cup.end.x, c.y), s * 0.11, -PI * 0.5, PI * 0.5, 12, ink, maxf(2.0, s * 0.03), true)
+			draw_line(Vector2(cup.position.x - s * 0.06, cup.end.y + s * 0.08), Vector2(cup.end.x + s * 0.07, cup.end.y + s * 0.08), accent, maxf(2.0, s * 0.035), true)
+			for steam_x in [-0.10, 0.08]:
+				draw_arc(c + Vector2(s * steam_x, -s * 0.22), s * 0.08, PI, TAU, 10, ink, maxf(1.5, s * 0.025), true)
+		else:
+			draw_circle(c, s * 0.30, Color("#6bb7ff", 0.16))
+			draw_arc(c, s * 0.29, 0.0, TAU, 24, ink, maxf(2.0, s * 0.035), true)
+			draw_line(c + Vector2(-s * 0.29, 0), c + Vector2(s * 0.29, 0), accent, maxf(1.5, s * 0.025), true)
+			draw_arc(c, s * 0.18, 0.0, TAU, 20, accent, maxf(1.5, s * 0.025), true)
+
 var locale_data: Dictionary = {}
 var catalogs: Dictionary = {}
 var locale := "ar"
@@ -103,6 +152,7 @@ var tile_labels: Array[Label] = []
 var tile_id_labels: Array[Label] = []
 var tile_value_labels: Array[Label] = []
 var tile_token_rows: Array[HBoxContainer] = []
+var tile_corner_art: Array[CornerArt] = []
 var player_tokens: Array[PlayerToken] = []
 var dice_face: DiceFace
 var player_cards: Array[Dictionary] = []
@@ -597,6 +647,7 @@ func _show_game() -> void:
 	tile_id_labels.clear()
 	tile_value_labels.clear()
 	tile_token_rows.clear()
+	tile_corner_art.clear()
 	player_tokens.clear()
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var tile_button := Button.new()
@@ -624,6 +675,20 @@ func _show_game() -> void:
 		token_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		header.add_child(token_row)
 		tile_content.add_child(header)
+		var corner_art := CornerArt.new()
+		corner_art.custom_minimum_size = Vector2(0, 28)
+		corner_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if tile_index == 0:
+			corner_art.configure("start")
+		elif tile_index == 10:
+			corner_art.configure("jail")
+		elif tile_index == 20:
+			corner_art.configure("rest")
+		elif tile_index == 30:
+			corner_art.configure("market")
+		else:
+			corner_art.visible = false
+		tile_content.add_child(corner_art)
 		var name_label := _label("", 12, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -641,9 +706,10 @@ func _show_game() -> void:
 		tile_id_labels.append(id_label)
 		tile_value_labels.append(value_label)
 		tile_token_rows.append(token_row)
+		tile_corner_art.append(corner_art)
 	for player_id in range(game.state["players"].size()):
 		var token := PlayerToken.new()
-		token.custom_minimum_size = Vector2(20, 20)
+		token.custom_minimum_size = Vector2(28, 28)
 		token.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		token.configure(PLAYER_COLORS[player_id % PLAYER_COLORS.size()], game.is_computer_player(player_id))
 		player_tokens.append(token)
@@ -767,12 +833,12 @@ func _ring_coordinate(tile_index: int) -> Vector2i:
 	if tile_index < 0 or tile_index >= BankGameModel.TILE_COUNT:
 		return Vector2i(-1, -1)
 	if tile_index <= 10:
-		return Vector2i(tile_index, 10)
+		return Vector2i(0, 10 - tile_index)
 	if tile_index <= 20:
-		return Vector2i(10, 20 - tile_index)
+		return Vector2i(tile_index - 10, 0)
 	if tile_index <= 30:
-		return Vector2i(30 - tile_index, 0)
-	return Vector2i(0, tile_index - 30)
+		return Vector2i(10, tile_index - 20)
+	return Vector2i(40 - tile_index, 10)
 
 func _layout_ring_tiles() -> void:
 	if not is_instance_valid(board_surface) or not is_instance_valid(center_panel) or tile_buttons.size() != BankGameModel.TILE_COUNT:
@@ -782,7 +848,7 @@ func _layout_ring_tiles() -> void:
 		return
 	# Keep corner tiles prominent, while giving the left/right columns enough
 	# height for complete names and a clearly readable amount.
-	var corner := minf(board_size.y * 0.16, board_size.x * 0.105)
+	var corner := minf(board_size.y * 0.13, board_size.x * 0.095)
 	var horizontal_step := (board_size.x - corner * 2.0) / 9.0
 	var vertical_step := (board_size.y - corner * 2.0) / 9.0
 	center_panel.position = Vector2(corner, corner)
@@ -818,7 +884,9 @@ func _layout_ring_tiles() -> void:
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
 		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)
 		for token in tile_token_rows[tile_index].get_children():
-			(token as Control).custom_minimum_size = Vector2(18, 18) if side_tile else Vector2(20, 20)
+			(token as Control).custom_minimum_size = Vector2(24, 24) if side_tile else Vector2(28, 28)
+		if tile_index < tile_corner_art.size():
+			tile_corner_art[tile_index].custom_minimum_size.y = 30 if not side_tile else 0
 	_refresh_board()
 	_update_game_view()
 
@@ -842,10 +910,11 @@ func _update_game_view() -> void:
 	dice_value_label.text = "%s: %s" % [_tr("dice"), "—" if int(game.state.get("last_dice", 0)) == 0 else str(game.state["last_dice"])]
 	if is_instance_valid(dice_face):
 		dice_face.set_face(maxi(1, int(game.state.get("last_dice", 0))))
-	feedback_label.text = _shorten(last_feedback.replace("\n", " · "), 90)
+	feedback_label.text = last_feedback.replace("\n", " · ")
 	var human_turn: bool = is_active and game.is_human_player(turn_id)
 	roll_button.visible = is_active
 	end_turn_button.visible = human_turn and phase == "actions"
+	end_turn_button.text = _tr("end_turn")
 	roll_button.disabled = not human_turn or phase != "await_roll" or animation_lock or cpu_running
 	end_turn_button.disabled = not human_turn or phase != "actions" or animation_lock or cpu_running
 	portfolio_button.disabled = not is_active and phase != "finished"
@@ -858,7 +927,7 @@ func _update_game_view() -> void:
 		buy_button.disabled = not human_turn or not enough or animation_lock or cpu_running
 		buy_button.text = _tr("buy") if enough else _tr("insufficient")
 		skip_button.disabled = not human_turn or animation_lock or cpu_running
-	obligation_panel.visible = is_active and phase == "obligation" and human_turn
+	obligation_panel.visible = is_active and phase in ["obligation", "jail"] and human_turn
 	if obligation_panel.visible:
 		_populate_obligation_panel(turn_id)
 	var waiting_for_decision: bool = purchase_panel.visible or obligation_panel.visible
@@ -1096,7 +1165,7 @@ func _landing_summary(player_id: int, tile_index: int, crossings: int) -> String
 		var card: Dictionary = game.state.get("last_event", {})
 		if not card.is_empty():
 			var effect := int(card.get("amount", 0))
-			if bool(card.get("food", false)) and game.has_investment(player_id, "agriculture", 2):
+			if bool(card.get("food", false)) and game.has_investment(player_id, "agriculture", BankGameModel.SUDAN_TILE):
 				effect += 60 if effect >= 0 else 35
 			summary += "\n" + _event_name(int(card.get("id", -1))) + " · " + _event_effect(effect)
 			if bool(card.get("food", false)):
@@ -1629,6 +1698,19 @@ func _respond_trade(accept: bool) -> void:
 func _populate_obligation_panel(player_id: int) -> void:
 	for child in obligation_content.get_children():
 		child.queue_free()
+	if str(game.state.get("phase", "")) == "jail":
+		var player: Dictionary = game.state["players"][player_id]
+		var remaining := int(player.get("jail_turns_remaining", 0))
+		obligation_content.add_child(_label(_tr("jail_status_title"), 19, RED, HORIZONTAL_ALIGNMENT_CENTER))
+		obligation_content.add_child(_label(_trf("jail_status_detail", {"turns": remaining, "amount": _money(int(BankGameModel.BOARD[10].get("bail", 500)))}), 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER))
+		var bail := _button(_tr("jail_pay_bail"), GOLD, 48, 16)
+		bail.disabled = int(game.get_balance(player_id)) < int(BankGameModel.BOARD[10].get("bail", 500))
+		bail.pressed.connect(_perform_jail_bail)
+		obligation_content.add_child(bail)
+		var wait := _secondary_button(_tr("jail_wait"), 46)
+		wait.pressed.connect(_perform_jail_wait)
+		obligation_content.add_child(wait)
+		return
 	var obligation: Dictionary = game.pending_obligation()
 	var due := int(obligation.get("amount", 0))
 	var balance := int(game.get_balance(player_id))
@@ -1660,11 +1742,26 @@ func _populate_obligation_panel(player_id: int) -> void:
 		var sale := _button("%s · %s · %s: %s" % [_tr("liquidate_property"), _tile_name(tile_index), _tr("asset_value"), _money(refund)], Color("#675047"), 50, 15)
 		sale.pressed.connect(_confirm_obligation_property.bind(tile_index))
 		obligation_content.add_child(sale)
-	if not has_asset:
-		obligation_content.add_child(_label(_tr("no_assets"), 16, MUTED))
-		var bankruptcy := _button(_tr("bankruptcy"), RED)
-		bankruptcy.pressed.connect(_confirm_bankruptcy)
-		obligation_content.add_child(bankruptcy)
+		if not has_asset:
+			obligation_content.add_child(_label(_tr("no_assets"), 16, MUTED))
+			var bankruptcy := _button(_tr("bankruptcy"), RED)
+			bankruptcy.pressed.connect(_confirm_bankruptcy)
+			obligation_content.add_child(bankruptcy)
+
+func _perform_jail_bail() -> void:
+	var result: Dictionary = game.pay_jail_bail(int(game.state["turn"]))
+	last_feedback = str(result.get("message", _tr("unknown")))
+	last_feedback_color = GREEN if bool(result.get("ok", false)) else RED
+	_save_game_state()
+	_update_game_view()
+
+func _perform_jail_wait() -> void:
+	var result: Dictionary = game.end_turn(int(game.state["turn"]))
+	last_feedback = str(result.get("message", _tr("unknown")))
+	last_feedback_color = BLUE if bool(result.get("ok", false)) else RED
+	_save_game_state()
+	_show_game()
+	_maybe_run_cpu_turn()
 
 func _property_refund(tile_index: int) -> int:
 	var refund := int(BankGameModel.BOARD[tile_index]["price"]) / 2

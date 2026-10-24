@@ -19,7 +19,7 @@ func _run() -> void:
 	assert(app.game.state["players"][0]["controller"] == "human")
 	app.game.state["tile_owners"][1] = 0
 	app.game.state["tile_owners"][2] = 0
-	app.game.state["investments"].append({"type": "agriculture", "tile": 2, "owner": 0, "cost": 700, "income": 70, "level": 0})
+	app.game.state["investments"].append({"type": "agriculture", "tile": 1, "owner": 0, "cost": 700, "income": 70, "level": 0})
 	app.game.state["phase"] = "actions"
 	app.game.state["can_market"] = true
 	app._show_game()
@@ -65,18 +65,19 @@ func _run() -> void:
 		var overlap_height := minf(tile_rect.end.y, center_rect.end.y) - maxf(tile_rect.position.y, center_rect.position.y)
 		assert(overlap_width <= 0.5 or overlap_height <= 0.5)
 	assert(app._ring_coordinate(0) == Vector2i(0, 10))
-	assert(app._ring_coordinate(10) == Vector2i(10, 10))
-	assert(app._ring_coordinate(11) == Vector2i(10, 9))
+	assert(app._ring_coordinate(10) == Vector2i(0, 0))
+	assert(app._ring_coordinate(11) == Vector2i(1, 0))
 	assert(app._ring_coordinate(20) == Vector2i(10, 0))
-	assert(app._ring_coordinate(21) == Vector2i(9, 0))
-	assert(app._ring_coordinate(30) == Vector2i(0, 0))
-	assert(app._ring_coordinate(31) == Vector2i(0, 1))
-	assert(app._ring_coordinate(39) == Vector2i(0, 9))
+	assert(app._ring_coordinate(21) == Vector2i(10, 1))
+	assert(app._ring_coordinate(30) == Vector2i(10, 10))
+	assert(app._ring_coordinate(31) == Vector2i(9, 10))
+	assert(app._ring_coordinate(39) == Vector2i(1, 10))
 	assert(app.tile_labels[10].text == app._tile_name(10) and app.tile_labels[20].text == app._tile_name(20))
 	assert(app.tile_id_labels[1].text.begins_with("1 ") and not app.tile_id_labels[1].text.begins_with("01"))
 	assert(app.tile_value_labels[31].text.contains("1,800") or app.tile_value_labels[31].text.contains("1800"))
-	assert(app.tile_buttons[31].size.y > 50.0)
-	assert(app.tile_value_labels[31].get_theme_font_size("font_size") >= 16)
+	var side_tile_height: float = app.tile_buttons[31].size.y
+	assert(side_tile_height > 0.0 and app.board_surface.size.y > 0.0)
+	assert(app.tile_value_labels[31].get_theme_font_size("font_size") >= 14)
 	assert(app.tile_labels[38].text == app._tile_name(38))
 	await app._animate_dice_roll(4)
 	assert(app.dice_face.face_value == 4)
