@@ -1,5 +1,6 @@
 extends SceneTree
 
+const BankGameModel = preload("res://scripts/game/bank_game.gd")
 const OUTPUT_DIR := "/home/ubuntu/luckbank-delivery/screenshots"
 
 func _initialize() -> void:
@@ -46,6 +47,23 @@ func _run() -> void:
 		app._show_market()
 		await _settle()
 		await _capture(app, "05-market-landscape.png")
+
+	var versus_game := BankGameModel.new()
+	versus_game.new_game("أنت", BankGameModel.MODE_COMPUTER, [], "easy", "short")
+	versus_game.state["phase"] = "actions"
+	versus_game.state["players"][0]["position"] = 2
+	versus_game.state["players"][1]["position"] = 4
+	app.game = versus_game
+	app.current_mode = BankGameModel.MODE_COMPUTER
+	app.animated_positions.clear()
+	for _player in range(versus_game.state["players"].size()):
+		app.animated_positions.append(-1)
+	app.selected_tile = 2
+	app.last_feedback = app._tr("phase_actions")
+	app._show_game()
+	await _settle()
+	assert(app.player_tokens.size() == 2 and not app.player_tokens[0].is_computer and app.player_tokens[1].is_computer)
+	await _capture(app, "06-human-pawn-vs-computer-robot.png")
 
 	print("[capture] saved landscape screenshots in " + OUTPUT_DIR)
 	app.queue_free()

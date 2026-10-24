@@ -34,7 +34,7 @@ const BOARD := [
 	{"id": 7, "type": "country", "name": "كينيا", "price": 750, "rent": 75, "income": 35, "group": 1},
 	{"id": 8, "type": "country", "name": "السعودية", "price": 1500, "rent": 150, "income": 75, "group": 1, "feature": "الطاقة"},
 	{"id": 9, "type": "country", "name": "الإمارات", "price": 1700, "rent": 170, "income": 85, "group": 1, "feature": "التجارة والخدمات"},
-	{"id": 10, "type": "tax", "name": "ضريبة الخزانة العامة", "amount": 500},
+	{"id": 10, "type": "jail", "name": "السجن", "bail": 500},
 	{"id": 11, "type": "country", "name": "تركيا", "price": 1200, "rent": 120, "income": 60, "group": 1},
 	{"id": 12, "type": "country", "name": "الهند", "price": 1300, "rent": 130, "income": 65, "group": 1},
 	{"id": 13, "type": "market", "name": "السوق والاستثمار", "market": "local"},
@@ -314,6 +314,12 @@ func _resolve_landing(player_id: int, tile_index: int, forced_event_index: int) 
 			result["message"] = "وصلت إلى " + str(tile["name"]) + ". افتح السوق لرؤية التكلفة والعائد قبل التأكيد."
 		"rest":
 			result["message"] = "راحة اقتصادية: لا ضريبة ولا مكافأة تلقائية؛ لم يتغير الرصيد."
+		"jail":
+			var bail := int(tile.get("bail", 500))
+			if _commit_payment(player_id, bail, "كفالة الخروج من السجن", -1, "jail_bail"):
+				result["message"] = "دفع %s كفالة السجن وقدرها %s وخرج منه." % [str(player["name"]), _cash(bail)]
+			else:
+				result["message"] = "لا يكفي الرصيد لكفالة السجن؛ سوِّ الالتزام أو صفِّ أصلًا."
 		_:
 			result["message"] = "مربع غير معروف؛ لم تُجرَ معاملة مالية."
 	return result

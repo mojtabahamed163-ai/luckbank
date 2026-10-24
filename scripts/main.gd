@@ -21,6 +21,70 @@ const PLAYER_COLORS := [Color("#e6bb62"), Color("#77b8e8"), Color("#71c5a2"), Co
 const PLAYER_SYMBOLS := ["●١", "◆٢", "▲٣", "■٤"]
 const LOCALE_IDS := ["ar", "en", "es", "fr"]
 
+class DiceFace extends Control:
+	var face_value := 1
+
+	func set_face(value: int) -> void:
+		face_value = clampi(value, 1, 6)
+		queue_redraw()
+
+	func _draw() -> void:
+		var inset := minf(size.x, size.y) * 0.12
+		var die_rect := Rect2(Vector2(inset, inset), size - Vector2(inset * 2.0, inset * 2.0))
+		draw_rect(die_rect, Color("#fffaf0"), true)
+		draw_rect(die_rect, Color("#1b2932"), false, maxf(1.5, size.x * 0.035))
+		var left := Vector2(0.25, 0.25)
+		var middle_left := Vector2(0.25, 0.5)
+		var right := Vector2(0.75, 0.75)
+		var middle_right := Vector2(0.75, 0.5)
+		var top_right := Vector2(0.75, 0.25)
+		var bottom_left := Vector2(0.25, 0.75)
+		var center := Vector2(0.5, 0.5)
+		var points: Array[Vector2] = []
+		match face_value:
+			1: points = [center]
+			2: points = [left, right]
+			3: points = [left, center, right]
+			4: points = [left, top_right, bottom_left, right]
+			5: points = [left, top_right, center, bottom_left, right]
+			6: points = [Vector2(0.25, 0.25), middle_left, bottom_left, top_right, middle_right, right]
+		var radius := minf(die_rect.size.x, die_rect.size.y) * 0.075
+		for point in points:
+			draw_circle(die_rect.position + Vector2(point.x * die_rect.size.x, point.y * die_rect.size.y), radius, Color("#18242d"))
+
+class PlayerToken extends Control:
+	var token_color := Color.WHITE
+	var is_computer := false
+
+	func configure(color: Color, computer: bool) -> void:
+		token_color = color
+		is_computer = computer
+		queue_redraw()
+
+	func _draw() -> void:
+		var w := minf(size.x, size.y)
+		var c := size * 0.5
+		var outline := Color("#14212a")
+		if is_computer:
+			draw_line(Vector2(c.x, 1), Vector2(c.x, 4), outline, 2.0, true)
+			draw_circle(Vector2(c.x, 1.5), 1.5, token_color.lightened(0.35))
+			var body := Rect2(Vector2(c.x - w * 0.34, c.y - w * 0.28), Vector2(w * 0.68, w * 0.62))
+			draw_rect(body, token_color, true)
+			draw_rect(body, outline, false, 1.4)
+			draw_rect(Rect2(Vector2(c.x - w * 0.20, c.y - w * 0.08), Vector2(w * 0.11, w * 0.10)), Color.WHITE, true)
+			draw_rect(Rect2(Vector2(c.x + w * 0.08, c.y - w * 0.08), Vector2(w * 0.11, w * 0.10)), Color.WHITE, true)
+			draw_rect(Rect2(Vector2(c.x - w * 0.25, c.y + w * 0.35), Vector2(w * 0.50, w * 0.12)), outline, true)
+		else:
+			draw_circle(Vector2(c.x, c.y - w * 0.20), w * 0.18, outline)
+			draw_circle(Vector2(c.x, c.y - w * 0.20), w * 0.13, token_color.lightened(0.12))
+			var body := PackedVector2Array([Vector2(c.x - w * 0.12, c.y - w * 0.07), Vector2(c.x + w * 0.12, c.y - w * 0.07), Vector2(c.x + w * 0.25, c.y + w * 0.28), Vector2(c.x - w * 0.25, c.y + w * 0.28)])
+			draw_colored_polygon(body, outline)
+			var fill := PackedVector2Array([Vector2(c.x - w * 0.08, c.y - w * 0.04), Vector2(c.x + w * 0.08, c.y - w * 0.04), Vector2(c.x + w * 0.18, c.y + w * 0.23), Vector2(c.x - w * 0.18, c.y + w * 0.23)])
+			draw_colored_polygon(fill, token_color)
+			var base := Rect2(Vector2(c.x - w * 0.36, c.y + w * 0.27), Vector2(w * 0.72, w * 0.18))
+			draw_rect(base, token_color, true)
+			draw_rect(base, outline, false, 1.3)
+
 var locale_data: Dictionary = {}
 var catalogs: Dictionary = {}
 var locale := "ar"
@@ -36,6 +100,11 @@ var animation_lock := false
 var animated_positions: Array[int] = []
 var tile_buttons: Array[Button] = []
 var tile_labels: Array[Label] = []
+var tile_id_labels: Array[Label] = []
+var tile_value_labels: Array[Label] = []
+var tile_token_rows: Array[HBoxContainer] = []
+var player_tokens: Array[PlayerToken] = []
+var dice_face: DiceFace
 var player_cards: Array[Dictionary] = []
 var name_inputs: Array[LineEdit] = []
 var name_rows: Array[Control] = []
@@ -525,21 +594,60 @@ func _show_game() -> void:
 	add_child(board_surface)
 	tile_buttons.clear()
 	tile_labels.clear()
+	tile_id_labels.clear()
+	tile_value_labels.clear()
+	tile_token_rows.clear()
+	player_tokens.clear()
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var tile_button := Button.new()
 		tile_button.focus_mode = Control.FOCUS_NONE
 		tile_button.text_direction = Control.TEXT_DIRECTION_AUTO
 		tile_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tile_button.pressed.connect(_on_tile_selected.bind(tile_index))
-		var tile_label := _label("", 12, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		tile_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		tile_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		tile_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		tile_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile_button.add_child(tile_label)
+		var tile_content := VBoxContainer.new()
+		tile_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		tile_content.add_theme_constant_override("separation", 0)
+		tile_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile_button.add_child(tile_content)
+		var header := HBoxContainer.new()
+		header.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		header.add_theme_constant_override("separation", 1)
+		header.custom_minimum_size = Vector2(0, 18)
+		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var id_label := _label("", 10, MUTED, HORIZONTAL_ALIGNMENT_LEFT)
+		id_label.text_direction = Control.TEXT_DIRECTION_LTR
+		id_label.custom_minimum_size = Vector2(28, 0)
+		header.add_child(id_label)
+		var token_row := HBoxContainer.new()
+		token_row.layout_direction = Control.LAYOUT_DIRECTION_LTR
+		token_row.add_theme_constant_override("separation", 0)
+		token_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(token_row)
+		tile_content.add_child(header)
+		var name_label := _label("", 12, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name_label.clip_text = false
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile_content.add_child(name_label)
+		var value_label := _label("", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+		value_label.custom_minimum_size = Vector2(0, 15)
+		value_label.clip_text = false
+		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile_content.add_child(value_label)
 		board_surface.add_child(tile_button)
 		tile_buttons.append(tile_button)
-		tile_labels.append(tile_label)
+		tile_labels.append(name_label)
+		tile_id_labels.append(id_label)
+		tile_value_labels.append(value_label)
+		tile_token_rows.append(token_row)
+	for player_id in range(game.state["players"].size()):
+		var token := PlayerToken.new()
+		token.custom_minimum_size = Vector2(20, 20)
+		token.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		token.configure(PLAYER_COLORS[player_id % PLAYER_COLORS.size()], game.is_computer_player(player_id))
+		player_tokens.append(token)
+
 	center_panel = PanelContainer.new()
 	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#18262f"), Color("#8e7947"), 20))
 	board_surface.add_child(center_panel)
@@ -555,28 +663,29 @@ func _show_game() -> void:
 	center_margin.add_child(center_scroll)
 	center_content = VBoxContainer.new()
 	center_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center_content.add_theme_constant_override("separation", 5)
+	center_content.add_theme_constant_override("separation", 3)
 	center_scroll.add_child(center_content)
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 5)
-	var home := _secondary_button("⌂  " + _tr("save_home"), 34)
+	var home := _secondary_button("⌂  " + _tr("save_home"), 30)
 	home.pressed.connect(_save_and_home)
 	top.add_child(home)
 	var logo := TextureRect.new()
 	logo.texture = load("res://assets/brand/luckbank-icon.png")
-	logo.custom_minimum_size = Vector2(30, 30)
+	logo.custom_minimum_size = Vector2(26, 26)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	top.add_child(logo)
-	top.add_child(_label(_tr("title"), 21, GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	top.add_child(_label(_tr("title"), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	top.visible = false
 	center_content.add_child(top)
-	status_turn_label = _label("", 19, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-	status_round_label = _label("", 15, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	status_phase_label = _label("", 14, BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	status_turn_label = _label("", 17, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	status_round_label = _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	status_phase_label = _label("", 12, BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 	center_content.add_child(status_turn_label)
 	center_content.add_child(status_round_label)
 	center_content.add_child(status_phase_label)
-	tile_detail_label = _label("", 15, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	tile_detail_label = _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	center_content.add_child(tile_detail_label)
 	var tile_info_row := HBoxContainer.new()
 	tile_info_button = _secondary_button(_tr("tile_info_button"), 34)
@@ -584,12 +693,32 @@ func _show_game() -> void:
 	tile_info_row.add_child(tile_info_button)
 	center_content.add_child(tile_info_row)
 	var dice_row := HBoxContainer.new()
+	dice_row.add_theme_constant_override("separation", 8)
+	dice_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	dice_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	dice_value_label = _label("", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	dice_value_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	dice_value_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dice_value_label.visible = false
 	dice_row.add_child(dice_value_label)
-	roll_button = _button(_tr("roll"), GOLD, 44, 17)
+	roll_button = _button("", GOLD, 64, 17)
+	roll_button.custom_minimum_size = Vector2(68, 68)
+	roll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	roll_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	roll_button.tooltip_text = _tr("roll")
 	roll_button.pressed.connect(_on_roll_pressed)
+	dice_face = DiceFace.new()
+	dice_face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dice_face.offset_left = 5
+	dice_face.offset_top = 5
+	dice_face.offset_right = -5
+	dice_face.offset_bottom = -5
+	dice_face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	roll_button.add_child(dice_face)
 	dice_row.add_child(roll_button)
 	end_turn_button = _button(_tr("end_turn"), GREEN, 44, 16)
+	end_turn_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	end_turn_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	dice_row.add_child(end_turn_button)
 	center_content.add_child(dice_row)
@@ -609,9 +738,12 @@ func _show_game() -> void:
 	purchase_description = _label("", 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	purchase_box.add_child(purchase_description)
 	var purchase_row := HBoxContainer.new()
+	purchase_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	buy_button = _button(_tr("buy"), GREEN, 44, 17)
+	buy_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	buy_button.pressed.connect(_on_buy_pressed)
 	skip_button = _secondary_button(_tr("skip"), 44)
+	skip_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	skip_button.pressed.connect(_on_skip_pressed)
 	purchase_row.add_child(buy_button)
 	purchase_row.add_child(skip_button)
@@ -635,12 +767,12 @@ func _ring_coordinate(tile_index: int) -> Vector2i:
 	if tile_index < 0 or tile_index >= BankGameModel.TILE_COUNT:
 		return Vector2i(-1, -1)
 	if tile_index <= 10:
-		return Vector2i(tile_index, 0)
+		return Vector2i(tile_index, 10)
 	if tile_index <= 20:
-		return Vector2i(10, tile_index - 10)
+		return Vector2i(10, 20 - tile_index)
 	if tile_index <= 30:
-		return Vector2i(30 - tile_index, 10)
-	return Vector2i(0, 40 - tile_index)
+		return Vector2i(30 - tile_index, 0)
+	return Vector2i(0, tile_index - 30)
 
 func _layout_ring_tiles() -> void:
 	if not is_instance_valid(board_surface) or not is_instance_valid(center_panel) or tile_buttons.size() != BankGameModel.TILE_COUNT:
@@ -648,35 +780,43 @@ func _layout_ring_tiles() -> void:
 	var board_size := board_surface.size
 	if board_size.x < 100.0 or board_size.y < 100.0:
 		return
-	var corner := minf(board_size.y * 0.18, board_size.x * 0.105)
+	var corner := minf(board_size.y * 0.20, board_size.x * 0.115)
 	var horizontal_step := (board_size.x - corner * 2.0) / 9.0
 	var vertical_step := (board_size.y - corner * 2.0) / 9.0
 	center_panel.position = Vector2(corner, corner)
 	center_panel.size = Vector2(board_size.x - corner * 2.0, board_size.y - corner * 2.0)
-	var font_size := clampi(int(corner / 8.2), 10, 15)
+	var font_size := clampi(int(corner / 8.0), 12, 16)
 	for tile_index in range(BankGameModel.TILE_COUNT):
+		var coord := _ring_coordinate(tile_index)
 		var rect := Rect2()
-		if tile_index == 0:
-			rect = Rect2(0.0, 0.0, corner, corner)
-		elif tile_index < 10:
-			rect = Rect2(corner + horizontal_step * float(tile_index - 1), 0.0, horizontal_step, corner)
-		elif tile_index == 10:
-			rect = Rect2(board_size.x - corner, 0.0, corner, corner)
-		elif tile_index < 20:
-			rect = Rect2(board_size.x - corner, corner + vertical_step * float(tile_index - 11), corner, vertical_step)
-		elif tile_index == 20:
-			rect = Rect2(board_size.x - corner, board_size.y - corner, corner, corner)
-		elif tile_index < 30:
-			rect = Rect2(board_size.x - corner - horizontal_step * float(tile_index - 20), board_size.y - corner, horizontal_step, corner)
-		elif tile_index == 30:
+		if coord.x == 0 and coord.y == 10:
 			rect = Rect2(0.0, board_size.y - corner, corner, corner)
+		elif coord.x == 10 and coord.y == 10:
+			rect = Rect2(board_size.x - corner, board_size.y - corner, corner, corner)
+		elif coord.x == 10 and coord.y == 0:
+			rect = Rect2(board_size.x - corner, 0.0, corner, corner)
+		elif coord.x == 0 and coord.y == 0:
+			rect = Rect2(0.0, 0.0, corner, corner)
+		elif coord.y == 10:
+			rect = Rect2(corner + horizontal_step * float(coord.x - 1), board_size.y - corner, horizontal_step, corner)
+		elif coord.y == 0:
+			rect = Rect2(corner + horizontal_step * float(coord.x - 1), 0.0, horizontal_step, corner)
+		elif coord.x == 10:
+			rect = Rect2(board_size.x - corner, corner + vertical_step * float(coord.y - 1), corner, vertical_step)
 		else:
-			rect = Rect2(0.0, board_size.y - corner - vertical_step * float(tile_index - 30), corner, vertical_step)
+			rect = Rect2(0.0, corner + vertical_step * float(coord.y - 1), corner, vertical_step)
 		var tile_button := tile_buttons[tile_index]
 		tile_button.position = rect.position
 		tile_button.size = rect.size
-		var label_font_size := font_size - 5 if (tile_index >= 11 and tile_index <= 19) or tile_index >= 31 else font_size
-		tile_labels[tile_index].add_theme_font_size_override("font_size", maxi(9, label_font_size))
+		var side_tile := (coord.x == 0 or coord.x == 10) and coord.y > 0 and coord.y < 10
+		var full_name := _tile_name(tile_index)
+		var title_size := (11 if full_name.length() > 17 else 12) if side_tile else font_size
+		var value_size := 14 if side_tile else clampi(font_size + 2, 14, 18)
+		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 9 if side_tile else 10)
+		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
+		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)
+		for token in tile_token_rows[tile_index].get_children():
+			(token as Control).custom_minimum_size = Vector2(18, 18) if side_tile else Vector2(20, 20)
 	_refresh_board()
 	_update_game_view()
 
@@ -696,11 +836,13 @@ func _update_game_view() -> void:
 	status_round_label.text = "%s %d/%d   ·   %s: %s" % [_tr("round"), int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16)), _tr("balance"), _money(int(current["balance"]))]
 	status_phase_label.text = _phase_name(phase)
 	tile_detail_label.text = "%s: %s" % [_tr("position"), _tile_name(int(current["position"]))]
-	tile_info_button.text = "%s · %s" % [_tr("tile_info_button"), _shorten(_tile_name(selected_tile), 14)]
+	tile_info_button.text = "%s · %s" % [_tr("tile_info_button"), _tile_name(selected_tile)]
 	dice_value_label.text = "%s: %s" % [_tr("dice"), "—" if int(game.state.get("last_dice", 0)) == 0 else str(game.state["last_dice"])]
+	if is_instance_valid(dice_face):
+		dice_face.set_face(maxi(1, int(game.state.get("last_dice", 0))))
 	feedback_label.text = _shorten(last_feedback.replace("\n", " · "), 90)
 	var human_turn: bool = is_active and game.is_human_player(turn_id)
-	roll_button.visible = human_turn and phase == "await_roll"
+	roll_button.visible = is_active
 	end_turn_button.visible = human_turn and phase == "actions"
 	roll_button.disabled = not human_turn or phase != "await_roll" or animation_lock or cpu_running
 	end_turn_button.disabled = not human_turn or phase != "actions" or animation_lock or cpu_running
@@ -718,7 +860,7 @@ func _update_game_view() -> void:
 	if obligation_panel.visible:
 		_populate_obligation_panel(turn_id)
 	var waiting_for_decision: bool = purchase_panel.visible or obligation_panel.visible
-	tile_info_button.get_parent().visible = not waiting_for_decision
+	tile_info_button.get_parent().visible = false
 	portfolio_button.get_parent().visible = not waiting_for_decision
 	feedback_label.visible = not last_feedback.is_empty() and not waiting_for_decision
 	result_panel.visible = not is_active
@@ -758,53 +900,73 @@ func _refresh_board() -> void:
 	if game.state.is_empty() or tile_buttons.size() != BankGameModel.TILE_COUNT or tile_labels.size() != BankGameModel.TILE_COUNT:
 		return
 	var players: Array = game.state["players"]
+	for player_id in range(player_tokens.size()):
+		var token: PlayerToken = player_tokens[player_id]
+		var tile_index := _display_position(player_id)
+		var alive := player_id < players.size() and bool(players[player_id].get("alive", true))
+		if not alive or tile_index < 0 or tile_index >= tile_token_rows.size():
+			if token.get_parent() != null:
+				token.get_parent().remove_child(token)
+			continue
+		var target_row := tile_token_rows[tile_index]
+		if token.get_parent() != target_row:
+			if token.get_parent() != null:
+				token.get_parent().remove_child(token)
+			target_row.add_child(token)
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var tile: Dictionary = BankGameModel.BOARD[tile_index]
 		var tile_type := str(tile["type"])
 		var owner := int(game.state["tile_owners"][tile_index])
-		var players_here: Array[String] = []
-		for player_id in range(players.size()):
-			if _display_position(player_id) == tile_index and bool(players[player_id].get("alive", true)):
-				players_here.append(_player_symbol(player_id))
-		var mark := " " + " ".join(players_here) if not players_here.is_empty() else ""
-		var info := ""
+		var title := _tile_name(tile_index)
+		var value := ""
+		var value_color := GOLD
 		var background := Color("#34404a")
 		var border := Color("#465a65")
 		if tile_type == "country":
 			var group_id := int(tile.get("group", 0))
 			background = GROUP_COLORS[group_id].darkened(0.55)
 			if owner >= 0:
-				border = PLAYER_COLORS[owner]
-				info = _player_symbol(owner) + "  " + _money(game.rent_for_tile(tile_index))
+				border = PLAYER_COLORS[owner % PLAYER_COLORS.size()]
+				value = _money(game.rent_for_tile(tile_index))
 			else:
-				info = _money(int(tile["price"]))
+				value = _money(int(tile["price"]))
 		elif tile_type == "start":
 			background = Color("#554624")
-			info = "+500 / " + _tr("income")
+			value = "+" + _money(BankGameModel.LAP_BONUS)
 		elif tile_type == "tax":
 			background = Color("#553634")
-			info = _money(int(tile["amount"]))
+			value = _money(int(tile["amount"]))
 		elif tile_type == "event":
 			background = Color("#433558")
-			info = _tr("event_title")
+			value = _tr("event_title")
+			value_color = BLUE
 		elif tile_type == "market":
 			background = Color("#315547")
-			info = _tr("investment")
+			value = _tr("investment")
+			value_color = GREEN
 		elif tile_type == "rest":
 			background = Color("#34404a")
-			info = _tr("rest_message")
+			value = _tr("rest_board")
+			value_color = MUTED
+		elif tile_type == "jail":
+			background = Color("#553634")
+			value = _money(int(tile.get("bail", 500)))
+		var owner_mark := "  " + _player_symbol(owner) if tile_type == "country" and owner >= 0 else ""
+		tile_id_labels[tile_index].text = "%d %s%s" % [tile_index, _flag(tile_index), owner_mark]
+		tile_labels[tile_index].text = title
+		tile_value_labels[tile_index].text = value
+		tile_value_labels[tile_index].add_theme_color_override("font_color", value_color)
 		var cell := tile_buttons[tile_index]
-		var name_limit := 12 if cell.size.x >= 110.0 else 8
-		var short_name := _shorten(_tile_name(tile_index), name_limit)
-		tile_labels[tile_index].text = "%02d %s\n%s\n%s%s" % [tile_index, _flag(tile_index), short_name, info, mark]
-		cell.tooltip_text = _tile_name(tile_index)
-		if tile_index == selected_tile or not players_here.is_empty():
-			border = PLAYER_COLORS[int(game.state.get("turn", 0))] if tile_index == selected_tile else border
+		cell.tooltip_text = title
+		if tile_type == "jail":
+			cell.tooltip_text += " · " + _trf("jail_bail_info", {"amount": _money(int(tile.get("bail", 500)))})
+		if tile_index == selected_tile:
+			border = PLAYER_COLORS[int(game.state.get("turn", 0)) % PLAYER_COLORS.size()]
 		var normal := _card_style(background, border, 9)
 		normal.content_margin_left = 2
 		normal.content_margin_right = 2
-		normal.content_margin_top = 2
-		normal.content_margin_bottom = 2
+		normal.content_margin_top = 0
+		normal.content_margin_bottom = 0
 		cell.add_theme_stylebox_override("normal", normal)
 		var hover := normal.duplicate() as StyleBoxFlat
 		hover.bg_color = background.lightened(0.15)
@@ -812,7 +974,6 @@ func _refresh_board() -> void:
 		var pressed := normal.duplicate() as StyleBoxFlat
 		pressed.bg_color = background.lightened(0.22)
 		cell.add_theme_stylebox_override("pressed", pressed)
-		tile_labels[tile_index].add_theme_color_override("font_color", TEXT)
 
 func _display_position(player_id: int) -> int:
 	if player_id < 0 or player_id >= game.state.get("players", []).size():
@@ -826,7 +987,10 @@ func _shorten(value: String, limit: int) -> String:
 
 func _on_tile_selected(tile_index: int) -> void:
 	selected_tile = tile_index
-	_update_game_view()
+	if screen_name == "game":
+		_show_tile_information()
+	else:
+		_update_game_view()
 
 func _tile_details_text(tile_index: int) -> String:
 	if tile_index < 0 or tile_index >= BankGameModel.TILE_COUNT:
@@ -857,6 +1021,8 @@ func _tile_details_text(tile_index: int) -> String:
 		lines.append(_tr("market_bonus") if bool(game.state.get("can_market", false)) else _tr("market_only"))
 	elif kind == "rest":
 		lines.append(_tr("rest_message"))
+	elif kind == "jail":
+		lines.append(_trf("jail_bail_info", {"amount": _money(int(tile.get("bail", 500)))}))
 	elif kind == "start":
 		lines.append(_tr("start_bonus") + ": " + _money(BankGameModel.LAP_BONUS) + " · " + _tr("income_note"))
 	return "\n".join(lines)
@@ -893,6 +1059,7 @@ func _tile_kind(kind: String) -> String:
 		"tax": return _tr("tile_tax")
 		"event": return _tr("tile_event")
 		"rest": return _tr("tile_rest")
+		"jail": return _tr("tile_jail")
 		"market": return _tr("tile_market")
 	return _tr("unknown")
 
@@ -936,6 +1103,10 @@ func _landing_summary(player_id: int, tile_index: int, crossings: int) -> String
 		summary += "\n" + _tr("on_market")
 	elif kind == "rest":
 		summary += "\n" + _tr("rest_message")
+	elif kind == "jail":
+		var pending: Dictionary = game.state.get("pending_obligation", {})
+		var bail_text := "jail_bail_due" if str(pending.get("category", "")) == "jail_bail" else "jail_bail_paid"
+		summary += "\n" + _trf(bail_text, {"amount": _money(int(tile.get("bail", 500)))})
 	return summary
 
 func _on_roll_pressed() -> void:
@@ -948,7 +1119,9 @@ func _on_roll_pressed() -> void:
 
 func _perform_roll(player_id: int) -> void:
 	var before := int(game.state["players"][player_id]["position"])
-	var result: Dictionary = game.roll(player_id, randi_range(1, 6))
+	var dice_result := randi_range(1, 6)
+	await _animate_dice_roll(dice_result)
+	var result: Dictionary = game.roll(player_id, dice_result)
 	if not bool(result.get("ok", false)):
 		last_feedback = _tr("roll_done")
 		last_feedback_color = RED
@@ -956,6 +1129,8 @@ func _perform_roll(player_id: int) -> void:
 		return
 	last_landed_player_id = player_id
 	selected_tile = int(result["to"])
+	if player_id >= 0 and player_id < animated_positions.size():
+		animated_positions[player_id] = before
 	_save_game_state()
 	_update_game_view()
 	await _animate_path(player_id, result.get("path", []), before)
@@ -963,6 +1138,20 @@ func _perform_roll(player_id: int) -> void:
 	last_feedback_color = BLUE if game.is_computer_player(player_id) else GOLD
 	_save_game_state()
 	_update_game_view()
+
+func _animate_dice_roll(final_face: int) -> void:
+	if not is_instance_valid(dice_face):
+		return
+	animation_lock = true
+	for frame in range(8):
+		dice_face.set_face(randi_range(1, 6))
+		dice_face.rotation = deg_to_rad(randf_range(-10.0, 10.0))
+		dice_face.scale = Vector2(0.94, 0.94) if frame % 2 == 0 else Vector2.ONE
+		await get_tree().create_timer(0.055).timeout
+	dice_face.set_face(final_face)
+	dice_face.rotation = 0.0
+	dice_face.scale = Vector2.ONE
+	animation_lock = false
 
 func _animate_path(player_id: int, path: Array, starting_position: int) -> void:
 	if player_id < 0 or player_id >= animated_positions.size():
@@ -1221,6 +1410,9 @@ func _show_more_actions() -> void:
 	finish.disabled = not human_turn or phase != "actions"
 	finish.pressed.connect(_confirm_finish_match)
 	column.add_child(finish)
+	var save_home := _secondary_button(_tr("save_home"), 46)
+	save_home.pressed.connect(_save_and_home)
+	column.add_child(save_home)
 	var close := _button(_tr("back_to_game"), BLUE)
 	close.pressed.connect(_show_game)
 	column.add_child(close)

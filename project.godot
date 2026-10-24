@@ -20,7 +20,7 @@ boot_splash/bg_color=Color(0.0627, 0.0941, 0.1255, 1)
 
 config/name="بنك الحظ"
 config/description="لعبة اقتصادية لوحية من 40 خانة تعمل دون اتصال، بأربع لغات."
-config/version="1.0.5"
+config/version="1.0.6"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/brand/luckbank-icon.png"

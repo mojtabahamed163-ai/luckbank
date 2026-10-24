@@ -25,10 +25,22 @@ func _run() -> void:
 	app._show_game()
 	await process_frame
 	await process_frame
+	app._on_tile_selected(2)
+	await process_frame
+	assert(app.screen_name == "tile_information")
+	app._show_game()
+	await process_frame
+	await process_frame
 	assert(app.tile_buttons.size() == 40)
+	assert(app.player_tokens.size() == 4)
+	assert(not app.player_tokens[0].is_computer and not app.player_tokens[1].is_computer)
+	assert(app.roll_button.text.is_empty() and app.dice_face != null)
+	assert(app.roll_button.visible and app.portfolio_button.get_parent().visible and app.more_button.get_parent().visible)
 	assert(app.board_surface.size.x > app.board_surface.size.y)
 	assert(app.board_surface.get_child_count() == 41)
 	assert(app.center_panel.size.x > app.center_panel.size.y)
+	var start_rect: Rect2 = app.tile_buttons[0].get_rect()
+	assert(start_rect.position.x < 1.0 and start_rect.position.y > app.board_surface.size.y * 0.5)
 	app.game.state["pending_property"] = 1
 	app.game.state["phase"] = "pending_purchase"
 	app._update_game_view()
@@ -52,14 +64,26 @@ func _run() -> void:
 		var overlap_width := minf(tile_rect.end.x, center_rect.end.x) - maxf(tile_rect.position.x, center_rect.position.x)
 		var overlap_height := minf(tile_rect.end.y, center_rect.end.y) - maxf(tile_rect.position.y, center_rect.position.y)
 		assert(overlap_width <= 0.5 or overlap_height <= 0.5)
-	assert(app._ring_coordinate(0) == Vector2i(0, 0))
-	assert(app._ring_coordinate(10) == Vector2i(10, 0))
-	assert(app._ring_coordinate(11) == Vector2i(10, 1))
-	assert(app._ring_coordinate(20) == Vector2i(10, 10))
-	assert(app._ring_coordinate(21) == Vector2i(9, 10))
-	assert(app._ring_coordinate(30) == Vector2i(0, 10))
-	assert(app._ring_coordinate(31) == Vector2i(0, 9))
-	assert(app._ring_coordinate(39) == Vector2i(0, 1))
+	assert(app._ring_coordinate(0) == Vector2i(0, 10))
+	assert(app._ring_coordinate(10) == Vector2i(10, 10))
+	assert(app._ring_coordinate(11) == Vector2i(10, 9))
+	assert(app._ring_coordinate(20) == Vector2i(10, 0))
+	assert(app._ring_coordinate(21) == Vector2i(9, 0))
+	assert(app._ring_coordinate(30) == Vector2i(0, 0))
+	assert(app._ring_coordinate(31) == Vector2i(0, 1))
+	assert(app._ring_coordinate(39) == Vector2i(0, 9))
+	assert(app.tile_labels[10].text == app._tile_name(10) and app.tile_labels[20].text == app._tile_name(20))
+	assert(app.tile_id_labels[1].text.begins_with("1 ") and not app.tile_id_labels[1].text.begins_with("01"))
+	assert(app.tile_value_labels[31].text.contains("1,800") or app.tile_value_labels[31].text.contains("1800"))
+	await app._animate_dice_roll(4)
+	assert(app.dice_face.face_value == 4)
+	app.game.state["phase"] = "await_roll"
+	app._update_game_view()
+	await process_frame
+	assert(app.roll_button.visible and app.roll_button.size.x <= 90.0)
+	assert(app.dice_face.size.x >= 48.0 and app.dice_face.size.y >= 48.0)
+	app.game.state["phase"] = "actions"
+	app._update_game_view()
 	assert(seen.size() == 40)
 	for language in ["ar", "en", "es", "fr"]:
 		app.locale = language

@@ -58,6 +58,12 @@ func _test_localization() -> void:
 	if typeof(data) != TYPE_DICTIONARY:
 		return
 	var base: Dictionary = data.get("ar", {}).get("ui", {})
+	var expected_special_tiles: Dictionary = {
+		"ar": ["السجن", "الراحة الاقتصادية"],
+		"en": ["Jail", "Economic rest"],
+		"es": ["Cárcel", "Descanso económico"],
+		"fr": ["Prison", "Repos économique"]
+	}
 	for language in ["ar", "en", "es", "fr"]:
 		var locale: Dictionary = data.get(language, {})
 		var ui: Dictionary = locale.get("ui", {})
@@ -65,6 +71,8 @@ func _test_localization() -> void:
 		for key in base.keys():
 			_check(ui.has(key) and typeof(ui.get(key, null)) == TYPE_STRING, "%s translates UI key %s" % [language, key])
 		_check(locale.get("tiles", []).size() == Model.TILE_COUNT, "%s has names for all board tiles" % language)
+		var localized_tiles: Array = locale.get("tiles", [])
+		_check(localized_tiles[10] == expected_special_tiles[language][0] and localized_tiles[20] == expected_special_tiles[language][1], "%s places jail on 10 and rest on 20" % language)
 		_check(locale.get("events", []).size() == Model.EVENTS.size(), "%s has names for every event card" % language)
 		_check(locale.get("flags", []).size() == Model.TILE_COUNT, "%s has a marker for every tile" % language)
 
@@ -75,16 +83,18 @@ func _fresh(mode: String = Model.MODE_COMPUTER, names: Array = [], difficulty: S
 
 func _test_board_definition() -> void:
 	_check(Model.BOARD.size() == 40 and Model.TILE_COUNT == 40, "exactly 40 board spaces")
-	var expected_names := ["البداية", "مصر", "السودان", "المغرب", "جنوب أفريقيا", "ضريبة الخدمات العامة", "نيجيريا", "كينيا", "السعودية", "الإمارات", "ضريبة الخزانة العامة", "تركيا", "الهند", "السوق والاستثمار", "الصين", "حدث اقتصادي", "اليابان", "كوريا الجنوبية", "إندونيسيا", "سنغافورة", "الراحة الاقتصادية", "أستراليا", "نيوزيلندا", "حدث اقتصادي", "فرنسا", "حدث اقتصادي", "ألمانيا", "إيطاليا", "إسبانيا", "المملكة المتحدة", "السوق العالمي", "النرويج", "روسيا", "البرازيل", "الأرجنتين", "حدث اقتصادي", "المكسيك", "كندا", "الولايات المتحدة الأمريكية", "تشيلي"]
+	var expected_names := ["البداية", "مصر", "السودان", "المغرب", "جنوب أفريقيا", "ضريبة الخدمات العامة", "نيجيريا", "كينيا", "السعودية", "الإمارات", "السجن", "تركيا", "الهند", "السوق والاستثمار", "الصين", "حدث اقتصادي", "اليابان", "كوريا الجنوبية", "إندونيسيا", "سنغافورة", "الراحة الاقتصادية", "أستراليا", "نيوزيلندا", "حدث اقتصادي", "فرنسا", "حدث اقتصادي", "ألمانيا", "إيطاليا", "إسبانيا", "المملكة المتحدة", "السوق العالمي", "النرويج", "روسيا", "البرازيل", "الأرجنتين", "حدث اقتصادي", "المكسيك", "كندا", "الولايات المتحدة الأمريكية", "تشيلي"]
 	var actual_names: Array[String] = []
-	var counts := {"start": 0, "country": 0, "tax": 0, "event": 0, "rest": 0, "market": 0}
+	var counts := {"start": 0, "country": 0, "tax": 0, "event": 0, "rest": 0, "jail": 0, "market": 0}
 	for i in range(Model.BOARD.size()):
 		var tile: Dictionary = Model.BOARD[i]
 		actual_names.append(str(tile["name"]))
 		counts[str(tile["type"])] += 1
 		_check(int(tile["id"]) == i, "stable id %d" % i)
 	_check(actual_names == expected_names, "all names and tile order match the requested 40-square route")
-	_check(counts["country"] == 30 and counts["start"] == 1 and counts["tax"] == 2 and counts["event"] == 4 and counts["rest"] == 1 and counts["market"] == 2, "required board type counts")
+	_check(counts["country"] == 30 and counts["start"] == 1 and counts["tax"] == 1 and counts["event"] == 4 and counts["rest"] == 1 and counts["jail"] == 1 and counts["market"] == 2, "required board types include rest and jail")
+	_check(str(Model.BOARD[10]["type"]) == "jail" and int(Model.BOARD[10]["bail"]) == 500, "space 10 is jail with 500 bail")
+	_check(str(Model.BOARD[20]["type"]) == "rest", "space 20 is the neutral economic rest space")
 	_check(Model.country_tiles().size() == 30, "exactly 30 purchasable countries")
 	for group_id in range(6):
 		var game = _fresh()
@@ -153,16 +163,27 @@ func _test_taxes_and_rest() -> void:
 	service.state["players"][0]["position"] = 4
 	service.roll(0, 1)
 	_check(int(service.get_balance(0)) == 9700, "public-services tax is exactly 300")
-	var treasury = _fresh()
-	treasury.state["players"][0]["position"] = 9
-	treasury.roll(0, 1)
-	_check(int(treasury.get_balance(0)) == 9500, "treasury tax is exactly 500")
 	var rest = _fresh()
 	rest.state["players"][0]["position"] = 19
-	var before := rest.get_balance(0)
-	var result: Dictionary = rest.roll(0, 1)
-	_check(int(rest.get_balance(0)) == before and str(rest.state["phase"]) == "actions", "economic rest has no automatic gain or charge")
-	_check(str(result["messages"][0]).contains("لا ضريبة"), "rest result is described")
+	var rest_before := rest.get_balance(0)
+	var rest_result: Dictionary = rest.roll(0, 1)
+	_check(int(rest.get_balance(0)) == rest_before and str(rest.state["phase"]) == "actions", "space 20 rest has no automatic charge or reward")
+	_check(str(rest_result["messages"][0]).contains("راحة اقتصادية"), "space 20 describes free rest")
+	var jail = _fresh()
+	jail.state["players"][0]["position"] = 9
+	var jail_result: Dictionary = jail.roll(0, 1)
+	_check(int(jail.get_balance(0)) == 9500 and str(jail.state["phase"]) == "actions", "space 10 charges exactly 500 bail and releases the player")
+	_check(str(jail_result["messages"][0]).contains("كفالة السجن"), "jail landing describes bail")
+	var bail_entries := 0
+	for entry in jail.state["ledger"]:
+		if str(entry.get("category", "")) == "jail_bail" and int(entry.get("amount", 0)) == -500:
+			bail_entries += 1
+	_check(bail_entries == 1, "jail bail is recorded exactly once in the ledger")
+	var poor = _fresh()
+	poor.state["players"][0]["position"] = 9
+	poor.state["players"][0]["balance"] = 100
+	poor.roll(0, 1)
+	_check(str(poor.state["phase"]) == "obligation" and int(poor.get_balance(0)) == 100, "unaffordable bail creates an obligation without negative balance")
 
 func _test_groups_and_upgrades() -> void:
 	var game = _fresh()
