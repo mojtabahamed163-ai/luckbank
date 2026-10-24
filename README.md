@@ -54,6 +54,8 @@ APK موقّع بتوقيع Debug للتثبيت اليدوي، وليس إصد�
 افتح `project.godot` في Godot 4.7.2. لتشغيل اختبارات القواعد والاقتصاد:
 
 ```bash
+# يُنفذ مرة واحدة بعد الاستنساخ حتى تُستورد الخطوط والصور المحلية.
+godot --headless --editor --path . --quit
 godot --headless --path . --scene res://test/test_suite.tscn
 ```
 

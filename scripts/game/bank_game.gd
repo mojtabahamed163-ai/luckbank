@@ -1145,7 +1145,7 @@ func _migrate_v1_state(old_state: Dictionary) -> Dictionary:
 		if typeof(person) != TYPE_DICTIONARY:
 			return {}
 		names.append(str(person.get("name", "لاعب")))
-	var migrated_game := BankGame.new()
+	var migrated_game = get_script().new()
 	migrated_game.new_game(str(names[0]), MODE_COMPUTER)
 	for i in range(2):
 		migrated_game.state["players"][i]["balance"] = maxi(0, int(players[i].get("balance", STARTING_CASH)))
@@ -1163,7 +1163,7 @@ func _migrate_v2_state(old_state: Dictionary) -> Dictionary:
 		if typeof(player) != TYPE_DICTIONARY:
 			return {}
 		names.append(str(player.get("name", "لاعب")))
-	var migrated_game := BankGame.new()
+	var migrated_game = get_script().new()
 	migrated_game.new_game(str(names[0]), old_mode, names)
 	for i in range(old_players.size()):
 		migrated_game.state["players"][i]["balance"] = maxi(0, int(old_players[i].get("balance", STARTING_CASH)))

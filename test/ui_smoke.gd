@@ -75,6 +75,9 @@ func _run() -> void:
 	assert(app.tile_labels[10].text == app._tile_name(10) and app.tile_labels[20].text == app._tile_name(20))
 	assert(app.tile_id_labels[1].text.begins_with("1 ") and not app.tile_id_labels[1].text.begins_with("01"))
 	assert(app.tile_value_labels[31].text.contains("1,800") or app.tile_value_labels[31].text.contains("1800"))
+	assert(app.tile_buttons[31].size.y > 50.0)
+	assert(app.tile_value_labels[31].get_theme_font_size("font_size") >= 16)
+	assert(app.tile_labels[38].text == app._tile_name(38))
 	await app._animate_dice_roll(4)
 	assert(app.dice_face.face_value == 4)
 	app.game.state["phase"] = "await_roll"

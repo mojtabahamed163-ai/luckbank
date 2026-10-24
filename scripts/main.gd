@@ -780,7 +780,9 @@ func _layout_ring_tiles() -> void:
 	var board_size := board_surface.size
 	if board_size.x < 100.0 or board_size.y < 100.0:
 		return
-	var corner := minf(board_size.y * 0.20, board_size.x * 0.115)
+	# Keep corner tiles prominent, while giving the left/right columns enough
+	# height for complete names and a clearly readable amount.
+	var corner := minf(board_size.y * 0.16, board_size.x * 0.105)
 	var horizontal_step := (board_size.x - corner * 2.0) / 9.0
 	var vertical_step := (board_size.y - corner * 2.0) / 9.0
 	center_panel.position = Vector2(corner, corner)
@@ -810,9 +812,9 @@ func _layout_ring_tiles() -> void:
 		tile_button.size = rect.size
 		var side_tile := (coord.x == 0 or coord.x == 10) and coord.y > 0 and coord.y < 10
 		var full_name := _tile_name(tile_index)
-		var title_size := (11 if full_name.length() > 17 else 12) if side_tile else font_size
-		var value_size := 14 if side_tile else clampi(font_size + 2, 14, 18)
-		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 9 if side_tile else 10)
+		var title_size := (12 if full_name.length() > 17 else 13) if side_tile else font_size
+		var value_size := 16 if side_tile else clampi(font_size + 2, 14, 18)
+		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 10 if side_tile else 10)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
 		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)
 		for token in tile_token_rows[tile_index].get_children():
