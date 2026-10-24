@@ -71,7 +71,7 @@ const BOARD := [
 
 # Every card has a distinct description and a deterministic financial or strategic effect.
 const EVENTS := [
-	{"id": 0, "title": "ارتفاع الطلب على الغذاء", "text": "ازداد الطلب على الغذاء؛ يحصل مالك السودان الزراعي على 140 إضافية.", "amount": 80, "food": true},
+	{"id": 0, "title": "ارتفاع الطلب على الغذاء", "text": "ازداد الطلب على الغذاء؛ يحصل اللاعب على 80، وتُضاف 60 إذا كان يملك زراعة السودان.", "amount": 80, "food": true},
 	{"id": 1, "title": "انخفاض أسعار السلع", "text": "تراجعت أسعار السلع؛ خسر اللاعب 120 من قيمة المخزون.", "amount": -120},
 	{"id": 2, "title": "موسم زراعي ناجح", "text": "موسم زراعي ناجح؛ عائد 180، ويزيد عائد السودان الزراعي 60.", "amount": 180, "food": true},
 	{"id": 3, "title": "خسائر محاصيل", "text": "تضررت المحاصيل؛ تكاليف التعويض 150.", "amount": -150},
@@ -303,16 +303,16 @@ func _resolve_landing(player_id: int, tile_index: int, forced_event_index: int) 
 			var net_amount := event_amount + food_bonus
 			if net_amount >= 0:
 				_credit(player_id, net_amount, "حدث: " + str(card["title"]), -1, "event")
-				result["message"] = str(card["text"])
+				result["message"] = "%s: %s الأثر المالي الفعلي: +%s." % [str(player["name"]), str(card["text"]), _cash(net_amount)]
 				if food_bonus > 0:
 					result["message"] += " ميزة الأمن الغذائي السودانية: +%s." % _cash(food_bonus)
 			else:
 				if _commit_payment(player_id, -net_amount, "حدث: " + str(card["title"]), -1, "event"):
-					result["message"] = str(card["text"])
+					result["message"] = "%s: %s الأثر المالي الفعلي: -%s." % [str(player["name"]), str(card["text"]), _cash(-net_amount)]
 					if food_bonus > 0:
-						result["message"] += " دعم المشروع الزراعي: +%s." % _cash(food_bonus)
+						result["message"] += " دعم الأمن الغذائي خفّض الخصم بمقدار %s." % _cash(food_bonus)
 				else:
-					result["message"] = str(card["text"]) + " لا يكفي الرصيد؛ اختر التصفية."
+					result["message"] = "%s: %s لا يكفي الرصيد؛ اختر التصفية لتسوية الالتزام." % [str(player["name"]), str(card["text"])]
 		"market":
 			state["can_market"] = true
 			result["message"] = "وصلت إلى " + str(tile["name"]) + ". افتح السوق لرؤية التكلفة والعائد قبل التأكيد."
@@ -669,9 +669,9 @@ func end_turn(player_id: int) -> Dictionary:
 		if next_from_jail <= player_id:
 			state["round_number"] = int(state.get("round_number", 1)) + 1
 		state["turn"] = next_from_jail
-		state["phase"] = "await_roll"
+		state["phase"] = "jail" if int(state["players"][next_from_jail].get("jail_turns_remaining", 0)) > 0 else "await_roll"
 		state["can_market"] = false
-		state["last_message"] = ("انتهت عقوبة %s وخرج من السجن." if released else "بقي على %s في السجن %d دورًا.") % [str(jailed_player["name"]), int(jailed_player["jail_turns_remaining"])]
+		state["last_message"] = ("انتهت عقوبة %s وخرج من السجن." % str(jailed_player["name"])) if released else ("بقي على %s في السجن %d دورًا." % [str(jailed_player["name"]), int(jailed_player["jail_turns_remaining"])])
 		_add_log(str(state["last_message"]))
 		return {"ok": true, "next_player": next_from_jail, "round": int(state["round_number"]), "game_over": false, "message": str(state["last_message"]), "released": released}
 	state["busy"] = false
@@ -681,7 +681,7 @@ func end_turn(player_id: int) -> Dictionary:
 	if next <= player_id:
 		state["round_number"] = int(state.get("round_number", 1)) + 1
 	state["turn"] = next
-	state["phase"] = "await_roll"
+	state["phase"] = "jail" if int(state["players"][next].get("jail_turns_remaining", 0)) > 0 else "await_roll"
 	state["can_market"] = false
 	state["last_message"] = "انتهى الدور. دور %s." % str(state["players"][next]["name"])
 	_add_log(str(state["last_message"]))

@@ -910,7 +910,8 @@ func _update_game_view() -> void:
 	dice_value_label.text = "%s: %s" % [_tr("dice"), "—" if int(game.state.get("last_dice", 0)) == 0 else str(game.state["last_dice"])]
 	if is_instance_valid(dice_face):
 		dice_face.set_face(maxi(1, int(game.state.get("last_dice", 0))))
-	feedback_label.text = last_feedback.replace("\n", " · ")
+		feedback_label.text = last_feedback.replace("\n", " · ")
+		feedback_label.add_theme_color_override("font_color", last_feedback_color)
 	var human_turn: bool = is_active and game.is_human_player(turn_id)
 	roll_button.visible = is_active
 	end_turn_button.visible = human_turn and phase == "actions"
@@ -1113,8 +1114,8 @@ func _show_tile_information() -> void:
 
 func _feature_key(tile_index: int) -> String:
 	match tile_index:
-		1: return "feature_egypt"
-		2: return "feature_sudan"
+		1: return "feature_sudan"
+		2: return "feature_egypt"
 		8: return "feature_saudi"
 		9: return "feature_uae"
 		14: return "feature_china"
@@ -1140,6 +1141,31 @@ func _event_effect(amount: int) -> String:
 	if amount < 0:
 		return _tr("event_negative") + ": " + _money(amount)
 	return _tr("event_neutral")
+
+func _event_category(card: Dictionary) -> String:
+	var event_id := int(card.get("id", -1))
+	var amount := int(card.get("amount", 0))
+	if event_id in [10, 13, 30, 32]:
+		return "opportunity"
+	if event_id in [19, 27, 35]:
+		return "rare"
+	if event_id in [11, 14, 28, 33, 37]:
+		return "penalty"
+	if amount < 0:
+		return "crisis"
+	if amount == 0:
+		return "information"
+	return "reward"
+
+func _event_color(card: Dictionary) -> Color:
+	match _event_category(card):
+		"reward": return GREEN
+		"opportunity": return GOLD
+		"crisis": return RED
+		"information": return BLUE
+		"rare": return Color("#b58cff")
+		"penalty": return Color("#68727a")
+	return BLUE
 
 func _landing_summary(player_id: int, tile_index: int, crossings: int) -> String:
 	var tile: Dictionary = BankGameModel.BOARD[tile_index]
@@ -1167,7 +1193,9 @@ func _landing_summary(player_id: int, tile_index: int, crossings: int) -> String
 			var effect := int(card.get("amount", 0))
 			if bool(card.get("food", false)) and game.has_investment(player_id, "agriculture", BankGameModel.SUDAN_TILE):
 				effect += 60 if effect >= 0 else 35
-			summary += "\n" + _event_name(int(card.get("id", -1))) + " · " + _event_effect(effect)
+			var category := _event_category(card)
+			summary += "\n" + _event_name(int(card.get("id", -1))) + " · " + _tr("event_category") + ": " + _tr("event_" + category)
+			summary += "\n" + _trf("event_player_effect", {"name": str(game.state["players"][player_id]["name"]), "amount": _event_effect(effect)})
 			if bool(card.get("food", false)):
 				summary += "\n" + _tr("food_condition")
 	elif kind == "market":
@@ -1206,7 +1234,8 @@ func _perform_roll(player_id: int) -> void:
 	_update_game_view()
 	await _animate_path(player_id, result.get("path", []), before)
 	last_feedback = _landing_summary(player_id, int(result["to"]), int(result.get("crossings", 0)))
-	last_feedback_color = BLUE if game.is_computer_player(player_id) else GOLD
+	var event_card: Dictionary = game.state.get("last_event", {})
+	last_feedback_color = _event_color(event_card) if not event_card.is_empty() else (BLUE if game.is_computer_player(player_id) else GOLD)
 	_save_game_state()
 	_update_game_view()
 

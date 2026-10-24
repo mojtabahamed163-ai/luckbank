@@ -19,6 +19,7 @@ func _run() -> void:
 	_test_purchase_and_skip()
 	_test_rent_and_self_ownership()
 	_test_taxes_and_rest()
+	_test_stage_one_messages_and_jail_cycle()
 	_test_groups_and_upgrades()
 	_test_investment_economy_and_sudan()
 	_test_event_deck_and_food_condition()
@@ -191,6 +192,40 @@ func _test_taxes_and_rest() -> void:
 	poor.state["players"][0]["balance"] = 100
 	poor.roll(0, 1)
 	_check(str(poor.state["phase"]) == "jail" and int(poor.get_balance(0)) == 100, "unaffordable bail creates an obligation without negative balance")
+
+func _test_stage_one_messages_and_jail_cycle() -> void:
+	var reward = _fresh()
+	reward.state["players"][0]["position"] = 14
+	var reward_result: Dictionary = reward.roll(0, 1, 0)
+	_check(bool(reward_result.get("ok", false)) and int(reward.get_balance(0)) == 10080 and str(reward_result["messages"][0]).contains("الأثر المالي الفعلي: +80"), "event reward message matches the actual credit")
+	var negative = _fresh()
+	negative.state["players"][0]["position"] = 14
+	var negative_result: Dictionary = negative.roll(0, 1, 1)
+	_check(bool(negative_result.get("ok", false)) and int(negative.get_balance(0)) == 9880 and str(negative_result["messages"][0]).contains("الأثر المالي الفعلي: -120"), "event loss message matches the actual debit")
+	var balance_before_summary := reward.get_balance(0)
+	var event_transactions := 0
+	for entry in reward.state["ledger"]:
+		if str(entry.get("category", "")) == "event":
+			event_transactions += 1
+	_check(reward.get_balance(0) == balance_before_summary and event_transactions == 1, "an event is recorded once and cannot repeat its transaction")
+	var jailed = _fresh(Model.MODE_LOCAL, ["سجين", "مراقب"])
+	jailed.state["tile_owners"][Model.SUDAN_TILE] = 0
+	jailed.state["players"][0]["position"] = 9
+	jailed.roll(0, 1)
+	var initial_balance := jailed.get_balance(0)
+	for jail_round in range(3):
+		var jail_end: Dictionary = jailed.end_turn(0)
+		_check(bool(jail_end.get("ok", false)), "jailed player completes one real turn")
+		if jail_round < 2:
+			jailed.state["phase"] = "actions"
+			jailed.end_turn(1)
+	_check(int(jailed.state["players"][0]["jail_turns_remaining"]) == 0 and str(jailed.state["phase"]) == "await_roll", "jail releases automatically after three turns")
+	_check(int(jailed.state["players"][0]["position"]) == 10 and int(jailed.get_balance(0)) == initial_balance + 240, "jail preserves position and pays periodic income without a start bonus")
+	var start_entries := 0
+	for entry in jailed.state["ledger"]:
+		if str(entry.get("category", "")) == "start":
+			start_entries += 1
+	_check(start_entries == 0, "jail turns never create a false start crossing")
 
 func _test_groups_and_upgrades() -> void:
 	var game = _fresh()
