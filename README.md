@@ -1,27 +1,27 @@
-# بنك الحظ 1.0.4
+# بنك الحظ 1.0.5
 
 لعبة لوحية اقتصادية بالعربية مبنية بـGodot 4.7.2، تعمل دون اتصال بالإنترنت. اللوحة 40 خانة و30 دولة، مع لعب ضد الكمبيوتر بثلاث درجات أو لعب محلي بالتناوب من لاعبين إلى أربعة. تدعم العربية والإنجليزية والإسبانية والفرنسية، وتُقفل أفقيًا على Android.
 
 هذا المستودع خاص. الملفات القابلة للتنزيل موجودة في إصدار GitHub:
 
-- [تحميل APK Android 1.0.4](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.4/luckbank-universal-debug.apk)
-- [تحميل مصدر اللعبة والاختبارات](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.4/luckbank-source-1.0.4.zip)
-- [تحميل صور اللعب](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.4/luckbank-gameplay-images-1.0.4.zip)
-- [صفحة إصدار 1.0.4 وملاحظاته](https://github.com/mojtabahamed163-ai/luckbank/releases/tag/v1.0.4)
+- [تحميل APK Android 1.0.5](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.5/luckbank-1.0.5.apk)
+- [تحميل مصدر اللعبة والاختبارات](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.5/luckbank-source-1.0.5.zip)
+- [تحميل صور اللعب](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.5/luckbank-gameplay-images-1.0.5.zip)
+- [صفحة إصدار 1.0.5 وملاحظاته](https://github.com/mojtabahamed163-ai/luckbank/releases/tag/v1.0.5)
 
 ## صور من داخل اللعبة
 
 **لوحة الأربعين خانة على الوضع الأفقي:**
 
-![لوحة بنك الحظ](docs/screenshots/v1.0.4/03-board-landscape.png)
+![لوحة بنك الحظ](docs/screenshots/v1.0.5/03-board-landscape.png)
 
 **أثناء اللعب بعد رمية النرد:**
 
-![أثناء اللعب](docs/screenshots/v1.0.4/04-during-play-landscape.png)
+![أثناء اللعب](docs/screenshots/v1.0.5/04-during-play-landscape.png)
 
 **بعد شراء دولة:**
 
-![بعد شراء الدولة](docs/screenshots/v1.0.4/05-after-purchase-landscape.png)
+![بعد شراء الدولة](docs/screenshots/v1.0.5/05-after-purchase-landscape.png)
 
 تُظهر هذه الصور تشغيلًا فعليًا على Linux/X11 بدقة 1280×720، وليست لقطات ملتقطة من هاتف Android.
 
