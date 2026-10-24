@@ -1,7 +1,7 @@
 extends RefCounted
 class_name BankGame
 
-const SAVE_VERSION := 4
+const SAVE_VERSION := 5
 const STARTING_CASH := 10000
 const LAP_BONUS := 500
 const TILE_COUNT := 40
@@ -15,6 +15,30 @@ const SUDAN_TILE := 1
 const EGYPT_TILE := 2
 const JAIL_TURNS := 3
 const DEV_COSTS := [500, 800, 1200]
+const MARKET_PRODUCTS := {
+	"food": {"name": "الغذاء", "base_price": 120, "base_supply": 620, "base_demand": 600, "sector": "agriculture"},
+	"livestock": {"name": "المنتجات الحيوانية", "base_price": 160, "base_supply": 420, "base_demand": 400, "sector": "livestock"},
+	"energy": {"name": "الطاقة", "base_price": 210, "base_supply": 500, "base_demand": 540, "sector": "energy"},
+	"materials": {"name": "المواد الخام", "base_price": 180, "base_supply": 560, "base_demand": 520, "sector": "industry"},
+	"goods": {"name": "المنتجات الصناعية", "base_price": 240, "base_supply": 470, "base_demand": 500, "sector": "industry"},
+	"services": {"name": "الخدمات والتجارة", "base_price": 190, "base_supply": 520, "base_demand": 500, "sector": "trade"}
+}
+const COUNTRY_PROFILES := {
+	1: {"sectors": ["agriculture", "livestock"], "resources": ["food", "livestock"], "risk": 0.12},
+	2: {"sectors": ["agriculture", "trade"], "resources": ["food", "services"], "risk": 0.16},
+	8: {"sectors": ["energy", "logistics"], "resources": ["energy"], "risk": 0.10},
+	9: {"sectors": ["trade", "services"], "resources": ["services"], "risk": 0.14},
+	14: {"sectors": ["industry", "logistics"], "resources": ["materials", "goods"], "risk": 0.18},
+	16: {"sectors": ["technology", "industry"], "resources": ["goods"], "risk": 0.15},
+	26: {"sectors": ["industry", "technology"], "resources": ["goods", "materials"], "risk": 0.13},
+	38: {"sectors": ["technology", "trade"], "resources": ["goods", "services"], "risk": 0.20}
+}
+const GLOBAL_EVENTS := [
+	{"id": "food_shortage", "title": "نقص الغذاء", "product": "food", "demand_delta": 180, "supply_delta": -80, "duration": 3},
+	{"id": "energy_cost", "title": "ارتفاع تكاليف الطاقة", "product": "energy", "demand_delta": 100, "supply_delta": -90, "duration": 2},
+	{"id": "trade_recovery", "title": "تحسن ظروف التجارة", "product": "services", "demand_delta": 140, "supply_delta": 80, "duration": 3},
+	{"id": "industrial_surge", "title": "زيادة الإنتاج الصناعي", "product": "goods", "demand_delta": -60, "supply_delta": 180, "duration": 3}
+]
 const INVESTMENT_DATA := {
 	"agriculture": {"name": "الزراعة", "cost": 700, "income": 70, "tiles": [SUDAN_TILE, EGYPT_TILE]},
 	"livestock": {"name": "الثروة الحيوانية", "cost": 900, "income": 90, "tiles": [SUDAN_TILE]},
@@ -175,7 +199,34 @@ func new_game(player_name: String = "اللاعب", mode: String = MODE_COMPUTER
 		"difficulty": _clean_difficulty(difficulty), "can_market": false, "did_develop": false,
 		"did_invest": false, "current_tile": 0, "event_deck": deck, "event_discard": [],
 		"last_event": {}, "last_message": "بدأت المباراة. دور %s أولًا." % player_names[0],
-		"ledger": [], "log": ["بدأت المباراة برصيد 10,000 لكل لاعب."], "result": {}}
+		"ledger": [], "log": ["بدأت المباراة برصيد 10,000 لكل لاعب."], "result": {},
+		"market": _new_market_state(), "active_global_events": [], "market_inventory": _new_inventory_state(players.size()),
+		"goals": _new_goals(players.size()), "achievements": _new_achievements(players.size())}
+
+func _new_market_state() -> Dictionary:
+	var products := {}
+	for product_id in MARKET_PRODUCTS:
+		var definition: Dictionary = MARKET_PRODUCTS[product_id]
+		products[product_id] = {"supply": int(definition["base_supply"]), "demand": int(definition["base_demand"]), "last_price": int(definition["base_price"]), "trend": 0}
+	return {"products": products, "updated_turn": 1}
+
+func _new_inventory_state(player_count: int) -> Array:
+	var inventory: Array = []
+	for _player_id in range(player_count):
+		inventory.append({})
+	return inventory
+
+func _new_goals(player_count: int) -> Array:
+	var goals: Array = []
+	for player_id in range(player_count):
+		goals.append({"wealth": {"target": 14000, "progress": 0, "completed": false, "rewarded": false}, "diversified": {"target": 3, "progress": 0, "completed": false, "rewarded": false}})
+	return goals
+
+func _new_achievements(player_count: int) -> Array:
+	var achievements: Array = []
+	for _player_id in range(player_count):
+		achievements.append({"first_investment": false, "advanced_investment": false, "trade_success": false, "market_profit": false, "global_event": false})
+	return achievements
 
 func _clean_player_name(value: String, fallback: String) -> String:
 	var cleaned := value.strip_edges()
@@ -183,6 +234,139 @@ func _clean_player_name(value: String, fallback: String) -> String:
 
 func _clean_difficulty(value: String) -> String:
 	return value if value in ["easy", "medium", "hard"] else "medium"
+
+func country_profile(tile_index: int) -> Dictionary:
+	if COUNTRY_PROFILES.has(tile_index):
+		return COUNTRY_PROFILES[tile_index].duplicate(true)
+	var group := int(BOARD[tile_index].get("group", 0)) if tile_index >= 0 and tile_index < BOARD.size() else 0
+	var fallback_sectors := [["agriculture", "trade"], ["trade", "logistics"], ["industry", "energy"], ["trade", "services"], ["industry", "technology"], ["energy", "logistics"]]
+	var sectors: Array = fallback_sectors[clampi(group, 0, fallback_sectors.size() - 1)]
+	return {"sectors": sectors, "resources": ["services"], "risk": 0.20}
+
+func market_products() -> Array:
+	var result: Array = []
+	for product_id in MARKET_PRODUCTS:
+		var item: Dictionary = MARKET_PRODUCTS[product_id].duplicate(true)
+		item["id"] = product_id
+		result.append(item)
+	return result
+
+func market_quote(product_id: String) -> Dictionary:
+	if not MARKET_PRODUCTS.has(product_id) or state.is_empty():
+		return {}
+	var product_state: Dictionary = state.get("market", {}).get("products", {}).get(product_id, {})
+	var definition: Dictionary = MARKET_PRODUCTS[product_id]
+	var supply := int(product_state.get("supply", definition["base_supply"]))
+	var demand := int(product_state.get("demand", definition["base_demand"]))
+	var price := clampi(int(round(float(definition["base_price"]) * (1.0 + float(demand - supply) / 1000.0))), int(definition["base_price"]) / 2, int(definition["base_price"]) * 2)
+	return {"id": product_id, "name": definition["name"], "price": price, "supply": supply, "demand": demand, "trend": int(product_state.get("trend", 0))}
+
+func buy_market_product(player_id: int, product_id: String, quantity: int = 1) -> Dictionary:
+	if not _can_act(player_id, ["actions"]) or not bool(state.get("can_market", false)):
+		return _failure("افتح السوق أثناء دورك وبعد الوصول إلى خانة السوق.")
+	if quantity < 1 or quantity > 10 or not MARKET_PRODUCTS.has(product_id):
+		return _failure("كمية التداول غير صالحة.")
+	var quote := market_quote(product_id)
+	var total := int(quote["price"]) * quantity
+	if not _commit_payment(player_id, total, "شراء %d من %s" % [quantity, str(quote["name"])], -1, "market_buy"):
+		return _failure("لا يكفي الرصيد لشراء الكمية المطلوبة.")
+	var inventories: Array = state["market_inventory"]
+	var player_inventory: Dictionary = inventories[player_id]
+	player_inventory[product_id] = int(player_inventory.get(product_id, 0)) + quantity
+	inventories[player_id] = player_inventory
+	state["market_inventory"] = inventories
+	_adjust_market(product_id, -quantity * 5, quantity * 8)
+	_update_goals(player_id)
+	return {"ok": true, "quantity": quantity, "price": int(quote["price"]), "total": total}
+
+func sell_market_product(player_id: int, product_id: String, quantity: int = 1) -> Dictionary:
+	if not _can_act(player_id, ["actions"]) or not bool(state.get("can_market", false)):
+		return _failure("افتح السوق أثناء دورك وبعد الوصول إلى خانة السوق.")
+	var inventories: Array = state["market_inventory"]
+	var player_inventory: Dictionary = inventories[player_id]
+	if quantity < 1 or int(player_inventory.get(product_id, 0)) < quantity:
+		return _failure("لا تملك هذه الكمية للبيع.")
+	var quote := market_quote(product_id)
+	var total := int(quote["price"]) * quantity
+	player_inventory[product_id] = int(player_inventory.get(product_id, 0)) - quantity
+	inventories[player_id] = player_inventory
+	state["market_inventory"] = inventories
+	_credit(player_id, total, "بيع %d من %s" % [quantity, str(quote.get("name", product_id))], -1, "market_sell")
+	_adjust_market(product_id, quantity * 5, -quantity * 8)
+	state["achievements"][player_id]["market_profit"] = true
+	_update_goals(player_id)
+	return {"ok": true, "quantity": quantity, "price": int(quote["price"]), "total": total}
+
+func _adjust_market(product_id: String, supply_delta: int, demand_delta: int) -> void:
+	if not state.get("market", {}).get("products", {}).has(product_id):
+		return
+	var product_state: Dictionary = state["market"]["products"][product_id]
+	var old_price := int(market_quote(product_id).get("price", 0))
+	product_state["supply"] = maxi(0, int(product_state.get("supply", 0)) + supply_delta)
+	product_state["demand"] = maxi(0, int(product_state.get("demand", 0)) + demand_delta)
+	state["market"]["products"][product_id] = product_state
+	product_state["last_price"] = int(market_quote(product_id).get("price", old_price))
+	product_state["trend"] = signi(int(product_state["last_price"]) - old_price)
+
+func trigger_global_event(event_index: int = -1) -> Dictionary:
+	if event_index < 0:
+		event_index = int(int(state.get("turn_number", 1)) / 4) % GLOBAL_EVENTS.size()
+	var event: Dictionary = GLOBAL_EVENTS[clampi(event_index, 0, GLOBAL_EVENTS.size() - 1)].duplicate(true)
+	var active: Array = state.get("active_global_events", [])
+	active.append(event)
+	state["active_global_events"] = active
+	_adjust_market(str(event["product"]), int(event["supply_delta"]), int(event["demand_delta"]))
+	for player_id in range(state["players"].size()):
+		state["achievements"][player_id]["global_event"] = true
+	_add_log("حدث عالمي: %s لمدة %d أدوار." % [str(event["title"]), int(event["duration"])])
+	return event
+
+func _advance_global_events() -> void:
+	var remaining: Array = []
+	for event in state.get("active_global_events", []):
+		var next_event: Dictionary = event.duplicate(true)
+		next_event["duration"] = int(next_event.get("duration", 1)) - 1
+		if int(next_event["duration"]) > 0:
+			remaining.append(next_event)
+		else:
+			_adjust_market(str(next_event["product"]), -int(next_event["supply_delta"]), -int(next_event["demand_delta"]))
+	state["active_global_events"] = remaining
+
+func _update_goals(player_id: int) -> void:
+	if not _valid_player_id(player_id) or not state.has("goals"):
+		return
+	var goals: Dictionary = state["goals"][player_id]
+	var worth := int(get_net_worth(player_id).get("net_worth", 0))
+	goals["wealth"]["progress"] = worth
+	goals["wealth"]["completed"] = worth >= int(goals["wealth"]["target"])
+	var sectors := {}
+	for investment in state.get("investments", []):
+		if int(investment.get("owner", -1)) == player_id:
+			sectors[str(investment.get("type", ""))] = true
+	goals["diversified"]["progress"] = sectors.size()
+	goals["diversified"]["completed"] = sectors.size() >= int(goals["diversified"]["target"])
+	state["goals"][player_id] = goals
+
+func _produce_market_supply(player_id: int) -> void:
+	for investment in state.get("investments", []):
+		if int(investment.get("owner", -1)) != player_id:
+			continue
+		var product_id := ""
+		match str(investment.get("type", "")):
+			"agriculture": product_id = "food"
+			"livestock": product_id = "livestock"
+			"energy": product_id = "energy"
+			"industry": product_id = "goods"
+			"trade", "logistics": product_id = "services"
+		if not product_id.is_empty():
+			_adjust_market(product_id, maxi(1, int(investment.get("income", 0)) / 10), 0)
+
+func _advance_turn_economy(player_id: int) -> void:
+	_produce_market_supply(player_id)
+	_advance_global_events()
+	if int(state.get("turn_number", 1)) % 4 == 0:
+		trigger_global_event()
+	_update_goals(player_id)
 
 func _shuffle(values: Array) -> void:
 	for i in range(values.size() - 1, 0, -1):
@@ -608,6 +792,10 @@ func buy_investment(player_id: int, investment_type: String, tile_index: int) ->
 		state["investments"] = investments
 		state["did_invest"] = true
 		var expansion_message := "توسعة %s في السودان إلى المرحلة %d: التكلفة %s، وتزيد الدخل الدوري %s." % [str(info["name"]), current_level + 1, _cash(expansion_cost), _cash(expansion_income)]
+		state["achievements"][player_id]["first_investment"] = true
+		if current_level + 1 >= 2:
+			state["achievements"][player_id]["advanced_investment"] = true
+		_update_goals(player_id)
 		_add_log(expansion_message)
 		state["last_message"] = expansion_message
 		return {"ok": true, "message": expansion_message, "cost": expansion_cost, "income": expansion_income, "level": current_level + 1, "payback": int(ceil(float(expansion_cost) / float(maxi(1, expansion_income))))}
@@ -624,6 +812,8 @@ func buy_investment(player_id: int, investment_type: String, tile_index: int) ->
 	state["investments"] = investments
 	state["did_invest"] = true
 	var message := "استثمار %s في %s: التكلفة %s، والعائد الدوري المتوقع %s%s%s." % [str(info["name"]), str(BOARD[tile_index]["name"]), _cash(cost), _cash(income), " (ميزة الدولة +%d بالمئة)" % special if special > 0 else "", " (مشروع السودان +25 بالمئة من الدخل الأساسي)" if sudan_bonus > 0 else ""]
+	state["achievements"][player_id]["first_investment"] = true
+	_update_goals(player_id)
 	_add_log(message)
 	state["last_message"] = message
 	return {"ok": true, "message": message, "cost": cost, "income": income, "payback": int(ceil(float(cost) / float(maxi(1, income))))}
@@ -666,6 +856,7 @@ func end_turn(player_id: int) -> Dictionary:
 		state["busy"] = false
 		state["pending_property"] = -1
 		state["turn_number"] = int(state.get("turn_number", 1)) + 1
+		_advance_turn_economy(player_id)
 		if next_from_jail <= player_id:
 			state["round_number"] = int(state.get("round_number", 1)) + 1
 		state["turn"] = next_from_jail
@@ -678,6 +869,7 @@ func end_turn(player_id: int) -> Dictionary:
 	state["pending_property"] = -1
 	var next := _next_alive_player(player_id)
 	state["turn_number"] = int(state.get("turn_number", 1)) + 1
+	_advance_turn_economy(player_id)
 	if next <= player_id:
 		state["round_number"] = int(state.get("round_number", 1)) + 1
 	state["turn"] = next
@@ -996,6 +1188,26 @@ func respond_to_trade(target_id: int, accept: bool) -> Dictionary:
 		return {"ok": true, "accepted": false, "message": "رُفضت الصفقة؛ لم تتغير الأرصدة أو الملكيات."}
 	return _execute_trade(offer)
 
+func counter_offer(target_id: int, give_tile: int = -1, ask_tile: int = -1, give_cash: int = 0, ask_cash: int = 0) -> Dictionary:
+	if str(state.get("phase", "")) != "trade":
+		return _failure("لا توجد صفقة أصلية لتقديم عرض مضاد لها.")
+	var original: Dictionary = state.get("pending_trade", {})
+	if original.is_empty() or int(original.get("to", -1)) != target_id:
+		return _failure("الطرف المحدد ليس صاحب العرض الحالي.")
+	var proposer := int(original.get("from", -1))
+	if not _valid_player_id(proposer) or not _valid_player_id(target_id):
+		return _failure("أطراف الصفقة غير صالحة.")
+	if give_cash < 0 or ask_cash < 0 or give_cash > int(state["players"][target_id]["balance"]) or ask_cash > int(state["players"][proposer]["balance"]):
+		return _failure("الرصيد لا يسمح بالعرض المضاد.")
+	if give_tile >= 0 and int(state["tile_owners"][give_tile]) != target_id:
+		return _failure("لا تملك الدولة المقدمة في العرض المضاد.")
+	if ask_tile >= 0 and int(state["tile_owners"][ask_tile]) != proposer:
+		return _failure("الدولة المطلوبة في العرض المضاد ليست ملكًا للطرف الآخر.")
+	state["pending_trade"] = {"from": target_id, "to": proposer, "give_tile": give_tile, "ask_tile": ask_tile, "give_cash": give_cash, "ask_cash": ask_cash}
+	state["last_message"] = "قُدم عرض مضاد وينتظر موافقة الطرف الآخر."
+	_add_log(str(state["last_message"]))
+	return {"ok": true, "pending": true, "counter": true, "offer": state["pending_trade"]}
+
 func computer_accepts_trade(computer_id: int, offer: Dictionary) -> bool:
 	if not is_computer_player(computer_id):
 		return false
@@ -1035,6 +1247,10 @@ func _execute_trade(offer: Dictionary) -> Dictionary:
 	if ask_cash > 0:
 		_commit_payment(receiver, ask_cash, "نقد مقابل صفقة", giver, "trade")
 	var message := "اكتملت صفقة بين %s و%s؛ نُقلت الدول والمبالغ المتفق عليها." % [str(state["players"][giver]["name"]), str(state["players"][receiver]["name"])]
+	state["achievements"][giver]["trade_success"] = true
+	state["achievements"][receiver]["trade_success"] = true
+	_update_goals(giver)
+	_update_goals(receiver)
 	_add_log(message)
 	state["last_message"] = message
 	return {"ok": true, "accepted": true, "message": message}
@@ -1158,7 +1374,7 @@ func load_from(path: String = SAVE_PATH) -> Dictionary:
 		return {"ok": false, "corrupt": true, "message": "ملف الحفظ تالف أو غير مكتمل."}
 	var payload: Dictionary = parser.data
 	var version := int(payload.get("version", -1))
-	if version not in [1, 2, 3, SAVE_VERSION] or typeof(payload.get("state", null)) != TYPE_DICTIONARY:
+	if version not in [1, 2, 3, 4, SAVE_VERSION] or typeof(payload.get("state", null)) != TYPE_DICTIONARY:
 		return {"ok": false, "corrupt": true, "message": "إصدار أو بنية ملف الحفظ غير صالحة."}
 	var candidate: Dictionary = payload["state"].duplicate(true)
 	var migrated := version != SAVE_VERSION
@@ -1168,6 +1384,16 @@ func load_from(path: String = SAVE_PATH) -> Dictionary:
 		candidate = _migrate_v2_state(candidate)
 	elif version == 3:
 		candidate = _migrate_v3_state(candidate)
+	if not candidate.has("market"):
+		candidate["market"] = _new_market_state()
+	if not candidate.has("active_global_events"):
+		candidate["active_global_events"] = []
+	if not candidate.has("market_inventory"):
+		candidate["market_inventory"] = _new_inventory_state(candidate.get("players", []).size())
+	if not candidate.has("goals"):
+		candidate["goals"] = _new_goals(candidate.get("players", []).size())
+	if not candidate.has("achievements"):
+		candidate["achievements"] = _new_achievements(candidate.get("players", []).size())
 	if not validate_state(candidate):
 		return {"ok": false, "corrupt": true, "message": "بيانات المباراة المحفوظة غير متوافقة أو تالفة."}
 	state = candidate.duplicate(true)

@@ -1362,6 +1362,25 @@ func _show_market() -> void:
 	if not can_open:
 		column.add_child(_label(_tr("no_market"), 18, RED, HORIZONTAL_ALIGNMENT_CENTER))
 	else:
+		column.add_child(_label("السوق العالمي · العرض والطلب", 20, GOLD))
+		for product in game.market_products():
+			var product_id := str(product["id"])
+			var quote: Dictionary = game.market_quote(product_id)
+			var trend := "↑" if int(quote.get("trend", 0)) > 0 else ("↓" if int(quote.get("trend", 0)) < 0 else "→")
+			var product_box := _panel(PANEL_ALT, Color("#263c48"))
+			product_box.add_child(_label("%s · السعر: %s · العرض: %d · الطلب: %d %s" % [str(product["name"]), _money(int(quote["price"])), int(quote["supply"]), int(quote["demand"]), trend], 15, TEXT))
+			var product_actions := HBoxContainer.new()
+			product_actions.add_theme_constant_override("separation", 8)
+			var buy_product := _secondary_button("شراء 1", 44)
+			buy_product.pressed.connect(_perform_market_buy.bind(product_id))
+			product_actions.add_child(buy_product)
+			var sell_product := _secondary_button("بيع 1", 44)
+			sell_product.pressed.connect(_perform_market_sell.bind(product_id))
+			product_actions.add_child(sell_product)
+			product_box.add_child(product_actions)
+			column.add_child(product_box)
+		for global_event in game.state.get("active_global_events", []):
+			column.add_child(_label("حدث عالمي: %s · متبقٍ %d دورًا" % [str(global_event["title"]), int(global_event["duration"])], 15, Color("#b58cff")))
 		column.add_child(_label(_tr("buy_investment"), 20, GOLD))
 		var option_count := 0
 		for tile_index in BankGameModel.country_tiles():
@@ -1402,6 +1421,20 @@ func _show_market() -> void:
 func _investment_name(investment_type: String) -> String:
 	var key := "invest_" + investment_type
 	return _tr(key)
+
+func _perform_market_buy(product_id: String) -> void:
+	var result: Dictionary = game.buy_market_product(int(game.state["turn"]), product_id, 1)
+	last_feedback = "تم شراء وحدة من السوق." if bool(result.get("ok", false)) else str(result.get("message", _tr("unknown")))
+	last_feedback_color = GREEN if bool(result.get("ok", false)) else RED
+	_save_game_state()
+	_show_market()
+
+func _perform_market_sell(product_id: String) -> void:
+	var result: Dictionary = game.sell_market_product(int(game.state["turn"]), product_id, 1)
+	last_feedback = "تم بيع وحدة من السوق." if bool(result.get("ok", false)) else str(result.get("message", _tr("unknown")))
+	last_feedback_color = GREEN if bool(result.get("ok", false)) else RED
+	_save_game_state()
+	_show_market()
 
 func _confirm_investment(investment_type: String, tile_index: int, option: Dictionary) -> void:
 	var expansion_label := ""

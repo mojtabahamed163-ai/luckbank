@@ -23,6 +23,7 @@ func _run() -> void:
 	_test_groups_and_upgrades()
 	_test_investment_economy_and_sudan()
 	_test_event_deck_and_food_condition()
+	_test_phase_two_market_trade_goals()
 	_test_shortage_liquidation_and_bankruptcy()
 	_test_trade_rules()
 	_test_trade_moves_investment_bundle()
@@ -356,6 +357,32 @@ func _test_event_deck_and_food_condition() -> void:
 	with_farm.state["players"][0]["position"] = 14
 	with_farm.roll(0, 1, 0)
 	_check(int(with_farm.get_balance(0)) == 10140, "food event pays its 80 base plus 60 only with Sudan agriculture")
+
+func _test_phase_two_market_trade_goals() -> void:
+	var market = _fresh(Model.MODE_LOCAL, ["مريم"])
+	market.state["phase"] = "actions"
+	market.state["can_market"] = true
+	var profile: Dictionary = market.country_profile(Model.SUDAN_TILE)
+	_check("agriculture" in profile["sectors"] and "food" in profile["resources"], "Sudan exposes real strategic food and livestock sectors")
+	var quote_before: Dictionary = market.market_quote("food")
+	var bought: Dictionary = market.buy_market_product(0, "food", 2)
+	_check(bool(bought.get("ok", false)) and int(market.state["market_inventory"][0].get("food", 0)) == 2 and int(market.get_balance(0)) < 10000, "market purchase updates inventory and cash once")
+	var sold: Dictionary = market.sell_market_product(0, "food", 1)
+	_check(bool(sold.get("ok", false)) and int(market.state["market_inventory"][0].get("food", 0)) == 1, "market sale updates inventory and credits the player")
+	var global_event: Dictionary = market.trigger_global_event(0)
+	var quote_after: Dictionary = market.market_quote("food")
+	_check(str(global_event["product"]) == "food" and int(quote_after["price"]) != int(quote_before["price"]), "global event changes a related product price for a limited period")
+	market._advance_global_events()
+	_check(market.state["active_global_events"].size() == 1 and int(market.state["active_global_events"][0]["duration"]) == 2, "global event duration counts down without changing country definitions")
+	var trade = _fresh(Model.MODE_LOCAL, ["مريم"])
+	trade.state["phase"] = "actions"
+	trade.state["tile_owners"][Model.SUDAN_TILE] = 0
+	trade.state["tile_owners"][6] = 1
+	var offer: Dictionary = trade.propose_trade(0, 1, Model.SUDAN_TILE, 6, 0, 0)
+	var counter: Dictionary = trade.counter_offer(1, 6, Model.SUDAN_TILE, 0, 0)
+	var counter_result: Dictionary = trade.respond_to_trade(0, true) if bool(counter.get("ok", false)) else {}
+	_check(bool(offer.get("pending", false)) and bool(counter.get("counter", false)) and bool(counter_result.get("ok", false)) and int(trade.state["tile_owners"][Model.SUDAN_TILE]) == 1, "counter-offer validates ownership and completes safely")
+	_check(bool(trade.state["achievements"][0]["trade_success"]) and bool(trade.state["achievements"][1]["trade_success"]), "successful trade records a real achievement")
 
 func _test_shortage_liquidation_and_bankruptcy() -> void:
 	var liquidate = _fresh()
