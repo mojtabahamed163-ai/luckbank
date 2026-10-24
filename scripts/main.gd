@@ -1,7 +1,7 @@
 extends Control
 
 const BankGameModel = preload("res://scripts/game/bank_game.gd")
-const ARABIC_FONT = preload("res://assets/fonts/Amiri-Regular.ttf")
+const UI_FONT = preload("res://assets/fonts/NotoSansArabic-Regular.ttf")
 const EMOJI_FONT = preload("res://assets/fonts/NotoColorEmoji.ttf")
 const LOCALE_FILE := "res://localization/luckbank.json"
 const SAVE_FILE := "user://luckbank-save.json"
@@ -66,16 +66,12 @@ var result_panel: PanelContainer
 var result_content: VBoxContainer
 var roll_button: Button
 var end_turn_button: Button
-var develop_button: Button
 var board_surface: Control
 var center_panel: PanelContainer
 var center_content: VBoxContainer
-var player_overview_label: Label
-var action_grid: GridContainer
-var market_button: Button
 var portfolio_button: Button
-var trade_button: Button
-var finish_match_button: Button
+var more_button: Button
+var tile_info_button: Button
 var main_column: VBoxContainer
 var app_theme: Theme
 var ui_font: FontFile
@@ -144,7 +140,7 @@ func _event_name(card_id: int) -> String:
 
 func _setup_theme() -> void:
 	app_theme = Theme.new()
-	ui_font = ARABIC_FONT.duplicate() as FontFile
+	ui_font = UI_FONT.duplicate() as FontFile
 	ui_font.fallbacks.append(EMOJI_FONT)
 	app_theme.default_font = ui_font
 	app_theme.default_font_size = 19
@@ -559,72 +555,63 @@ func _show_game() -> void:
 	center_margin.add_child(center_scroll)
 	center_content = VBoxContainer.new()
 	center_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center_content.add_theme_constant_override("separation", 3)
+	center_content.add_theme_constant_override("separation", 5)
 	center_scroll.add_child(center_content)
 	var top := HBoxContainer.new()
-	var home := _secondary_button("⌂  " + _tr("save_home"), 42)
+	top.add_theme_constant_override("separation", 5)
+	var home := _secondary_button("⌂  " + _tr("save_home"), 34)
 	home.pressed.connect(_save_and_home)
 	top.add_child(home)
 	var logo := TextureRect.new()
 	logo.texture = load("res://assets/brand/luckbank-icon.png")
-	logo.custom_minimum_size = Vector2(38, 38)
+	logo.custom_minimum_size = Vector2(30, 30)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	top.add_child(logo)
-	top.add_child(_label(_tr("title"), 27, GOLD, HORIZONTAL_ALIGNMENT_CENTER))
+	top.add_child(_label(_tr("title"), 21, GOLD, HORIZONTAL_ALIGNMENT_CENTER))
 	center_content.add_child(top)
-	status_turn_label = _label("", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-	status_round_label = _label("", 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	status_phase_label = _label("", 15, BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	status_turn_label = _label("", 19, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	status_round_label = _label("", 15, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	status_phase_label = _label("", 14, BLUE, HORIZONTAL_ALIGNMENT_CENTER)
 	center_content.add_child(status_turn_label)
 	center_content.add_child(status_round_label)
 	center_content.add_child(status_phase_label)
-	player_overview_label = _label("", 14, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	center_content.add_child(player_overview_label)
-	var dice_row := HBoxContainer.new()
-	dice_value_label = _label("", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-	dice_row.add_child(dice_value_label)
-	roll_button = _button(_tr("roll"), GOLD, 50, 19)
-	roll_button.pressed.connect(_on_roll_pressed)
-	dice_row.add_child(roll_button)
-	end_turn_button = _button(_tr("end_turn"), GREEN, 50, 17)
-	end_turn_button.pressed.connect(_on_end_turn_pressed)
-	dice_row.add_child(end_turn_button)
-	finish_match_button = _secondary_button(_tr("end_match"), 42)
-	finish_match_button.pressed.connect(_confirm_finish_match)
-	dice_row.add_child(finish_match_button)
-	center_content.add_child(dice_row)
-	action_grid = GridContainer.new()
-	action_grid.columns = 3
-	action_grid.add_theme_constant_override("h_separation", 6)
-	action_grid.add_theme_constant_override("v_separation", 6)
-	develop_button = _button("↗  " + _tr("develop"), BLUE, 46, 16)
-	develop_button.pressed.connect(_show_development)
-	market_button = _button("▤  " + _tr("market"), GOLD, 46, 16)
-	market_button.pressed.connect(_show_market)
-	portfolio_button = _button("▣  " + _tr("portfolio"), GREEN, 46, 16)
-	portfolio_button.pressed.connect(_show_portfolio)
-	trade_button = _button("⇄  " + _tr("trade"), Color("#9e83c1"), 46, 16)
-	trade_button.pressed.connect(_show_trade)
-	var ledger_button := _button("≡  " + _tr("ledger"), Color("#759552"), 46, 16)
-	ledger_button.pressed.connect(_show_ledger)
-	var rules_button := _button("?  " + _tr("rules"), Color("#40515b"), 46, 16)
-	rules_button.pressed.connect(_show_rules)
-	for button in [develop_button, market_button, portfolio_button, trade_button, ledger_button, rules_button]:
-		action_grid.add_child(button)
-	center_content.add_child(action_grid)
 	tile_detail_label = _label("", 15, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	center_content.add_child(tile_detail_label)
-	feedback_label = _label(last_feedback, 15, last_feedback_color, HORIZONTAL_ALIGNMENT_CENTER)
+	var tile_info_row := HBoxContainer.new()
+	tile_info_button = _secondary_button(_tr("tile_info_button"), 34)
+	tile_info_button.pressed.connect(_show_tile_information)
+	tile_info_row.add_child(tile_info_button)
+	center_content.add_child(tile_info_row)
+	var dice_row := HBoxContainer.new()
+	dice_value_label = _label("", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	dice_row.add_child(dice_value_label)
+	roll_button = _button(_tr("roll"), GOLD, 44, 17)
+	roll_button.pressed.connect(_on_roll_pressed)
+	dice_row.add_child(roll_button)
+	end_turn_button = _button(_tr("end_turn"), GREEN, 44, 16)
+	end_turn_button.pressed.connect(_on_end_turn_pressed)
+	dice_row.add_child(end_turn_button)
+	center_content.add_child(dice_row)
+	var utility_row := HBoxContainer.new()
+	portfolio_button = _button(_tr("countries"), GREEN, 40, 15)
+	portfolio_button.pressed.connect(_show_portfolio)
+	utility_row.add_child(portfolio_button)
+	more_button = _button(_tr("more"), BLUE, 40, 15)
+	more_button.pressed.connect(_show_more_actions)
+	utility_row.add_child(more_button)
+	center_content.add_child(utility_row)
+	feedback_label = _label("", 13, last_feedback_color, HORIZONTAL_ALIGNMENT_CENTER)
+	feedback_label.clip_text = true
 	center_content.add_child(feedback_label)
 	purchase_panel = _panel(Color("#3a3020"), GOLD)
 	var purchase_box := VBoxContainer.new()
-	purchase_description = _label("", 17, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	purchase_description = _label("", 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	purchase_box.add_child(purchase_description)
 	var purchase_row := HBoxContainer.new()
-	buy_button = _button(_tr("buy"), GREEN, 48, 18)
+	buy_button = _button(_tr("buy"), GREEN, 44, 17)
 	buy_button.pressed.connect(_on_buy_pressed)
-	skip_button = _secondary_button(_tr("skip"), 48)
+	skip_button = _secondary_button(_tr("skip"), 44)
 	skip_button.pressed.connect(_on_skip_pressed)
 	purchase_row.add_child(buy_button)
 	purchase_row.add_child(skip_button)
@@ -661,12 +648,12 @@ func _layout_ring_tiles() -> void:
 	var board_size := board_surface.size
 	if board_size.x < 100.0 or board_size.y < 100.0:
 		return
-	var corner := minf(board_size.y * 0.145, board_size.x * 0.08)
+	var corner := minf(board_size.y * 0.18, board_size.x * 0.105)
 	var horizontal_step := (board_size.x - corner * 2.0) / 9.0
 	var vertical_step := (board_size.y - corner * 2.0) / 9.0
 	center_panel.position = Vector2(corner, corner)
 	center_panel.size = Vector2(board_size.x - corner * 2.0, board_size.y - corner * 2.0)
-	var font_size := clampi(int(corner / 7.5), 9, 14)
+	var font_size := clampi(int(corner / 8.2), 10, 15)
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var rect := Rect2()
 		if tile_index == 0:
@@ -688,7 +675,7 @@ func _layout_ring_tiles() -> void:
 		var tile_button := tile_buttons[tile_index]
 		tile_button.position = rect.position
 		tile_button.size = rect.size
-		var label_font_size := font_size - 2 if (tile_index >= 11 and tile_index <= 19) or tile_index >= 31 else font_size
+		var label_font_size := font_size - 5 if (tile_index >= 11 and tile_index <= 19) or tile_index >= 31 else font_size
 		tile_labels[tile_index].add_theme_font_size_override("font_size", maxi(9, label_font_size))
 	_refresh_board()
 	_update_game_view()
@@ -706,36 +693,18 @@ func _update_game_view() -> void:
 		status_turn_label.text = _tr("cpu_turn") if cpu_running else _trf("players_turn", {"name": str(current["name"])})
 	else:
 		status_turn_label.text = _trf("players_turn", {"name": str(current["name"])})
-	var current_income := 0
-	for tile_index in game.country_tiles():
-		if int(game.state["tile_owners"][tile_index]) == turn_id:
-			current_income += game.income_for_tile(tile_index)
-	status_round_label.text = "%s %d/%d   •   %s: %s   •   %s: %d   •   %s: %s   •   %s %s" % [_tr("round"), int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16)), _tr("balance"), _money(int(current["balance"])), _tr("countries"), game.count_owned_properties(turn_id), _tr("income"), _money(current_income), _tr("position"), _tile_name(int(current["position"]))]
+	status_round_label.text = "%s %d/%d   ·   %s: %s" % [_tr("round"), int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16)), _tr("balance"), _money(int(current["balance"]))]
 	status_phase_label.text = _phase_name(phase)
-	var overview_lines: Array[String] = []
-	for player_id in range(players.size()):
-		if player_id == turn_id:
-			continue
-		var player: Dictionary = players[player_id]
-		var symbol := _player_symbol(player_id)
-		var out_suffix := " · " + _tr("player_out") if not bool(player.get("alive", true)) else ""
-		overview_lines.append("%s %s: %s%s" % [symbol, str(player["name"]), _money(int(player["balance"])), out_suffix])
-	player_overview_label.text = "   •   ".join(overview_lines)
+	tile_detail_label.text = "%s: %s" % [_tr("position"), _tile_name(int(current["position"]))]
+	tile_info_button.text = "%s · %s" % [_tr("tile_info_button"), _shorten(_tile_name(selected_tile), 14)]
 	dice_value_label.text = "%s: %s" % [_tr("dice"), "—" if int(game.state.get("last_dice", 0)) == 0 else str(game.state["last_dice"])]
+	feedback_label.text = _shorten(last_feedback.replace("\n", " · "), 90)
 	var human_turn: bool = is_active and game.is_human_player(turn_id)
-	var show_actions := human_turn and (phase == "await_roll" or phase == "actions")
-	action_grid.visible = show_actions
 	roll_button.visible = human_turn and phase == "await_roll"
 	end_turn_button.visible = human_turn and phase == "actions"
-	finish_match_button.visible = human_turn and phase == "actions"
 	roll_button.disabled = not human_turn or phase != "await_roll" or animation_lock or cpu_running
 	end_turn_button.disabled = not human_turn or phase != "actions" or animation_lock or cpu_running
-	develop_button.disabled = not human_turn or phase != "actions" or game.count_owned_properties(turn_id) == 0 or cpu_running
-	market_button.disabled = not human_turn or phase != "actions" or not bool(game.state.get("can_market", false)) or cpu_running
-	market_button.tooltip_text = _tr("market_only")
 	portfolio_button.disabled = not is_active and phase != "finished"
-	trade_button.disabled = not human_turn or phase != "actions" or _alive_player_count() < 2 or cpu_running
-	finish_match_button.disabled = not human_turn or phase != "actions" or cpu_running
 	var pending := int(game.state.get("pending_property", -1))
 	purchase_panel.visible = is_active and pending >= 0
 	if purchase_panel.visible:
@@ -748,11 +717,13 @@ func _update_game_view() -> void:
 	obligation_panel.visible = is_active and phase == "obligation" and human_turn
 	if obligation_panel.visible:
 		_populate_obligation_panel(turn_id)
+	var waiting_for_decision: bool = purchase_panel.visible or obligation_panel.visible
+	tile_info_button.get_parent().visible = not waiting_for_decision
+	portfolio_button.get_parent().visible = not waiting_for_decision
+	feedback_label.visible = not last_feedback.is_empty() and not waiting_for_decision
 	result_panel.visible = not is_active
 	if result_panel.visible:
 		_populate_result_panel()
-	if is_instance_valid(tile_detail_label):
-		_render_tile_details(selected_tile)
 	_refresh_board()
 
 func _card_style(background: Color, border: Color, radius: int) -> StyleBoxFlat:
@@ -857,9 +828,9 @@ func _on_tile_selected(tile_index: int) -> void:
 	selected_tile = tile_index
 	_update_game_view()
 
-func _render_tile_details(tile_index: int) -> void:
+func _tile_details_text(tile_index: int) -> String:
 	if tile_index < 0 or tile_index >= BankGameModel.TILE_COUNT:
-		return
+		return ""
 	var tile: Dictionary = BankGameModel.BOARD[tile_index]
 	var kind := str(tile["type"])
 	var lines: Array[String] = ["%s  %s  ·  %s" % [_flag(tile_index), _tile_name(tile_index), _tile_kind(kind)]]
@@ -888,7 +859,20 @@ func _render_tile_details(tile_index: int) -> void:
 		lines.append(_tr("rest_message"))
 	elif kind == "start":
 		lines.append(_tr("start_bonus") + ": " + _money(BankGameModel.LAP_BONUS) + " · " + _tr("income_note"))
-	tile_detail_label.text = "\n".join(lines)
+	return "\n".join(lines)
+
+func _show_tile_information() -> void:
+	if game.state.is_empty():
+		return
+	screen_name = "tile_information"
+	var column := _begin_layout(_tr("tile_info_button"))
+	_add_header(_tr("tile_info_button"), true)
+	var info_panel := _panel(PANEL_ALT, GOLD)
+	info_panel.add_child(_label(_tile_details_text(selected_tile), 18, TEXT))
+	column.add_child(info_panel)
+	var close := _button(_tr("back_to_game"), BLUE)
+	close.pressed.connect(_show_game)
+	column.add_child(close)
 
 func _feature_key(tile_index: int) -> String:
 	match tile_index:
@@ -1203,46 +1187,88 @@ func _perform_upgrade(tile_index: int) -> void:
 	_save_game_state()
 	_show_game()
 
+func _show_more_actions() -> void:
+	if game.state.is_empty():
+		return
+	screen_name = "more"
+	var column := _begin_layout(_tr("more"))
+	_add_header(_tr("more"), true)
+	var turn_id := clampi(int(game.state.get("turn", 0)), 0, game.state["players"].size() - 1)
+	var phase := str(game.state.get("phase", ""))
+	var human_turn: bool = bool(game.state.get("active", false)) and game.is_human_player(turn_id)
+	var note := _panel(Color("#18262f"), Color("#40515b"))
+	note.add_child(_label("%s · %s" % [_phase_name(phase), str(game.state["players"][turn_id]["name"])] , 15, MUTED))
+	column.add_child(note)
+	var develop := _button(_tr("develop"), BLUE, 50, 17)
+	develop.disabled = not human_turn or phase != "actions" or game.count_owned_properties(turn_id) == 0
+	develop.pressed.connect(_show_development)
+	column.add_child(develop)
+	var market := _button(_tr("market"), GOLD, 50, 17)
+	market.disabled = not human_turn or phase != "actions"
+	market.pressed.connect(_show_market)
+	column.add_child(market)
+	var trade := _button(_tr("trade"), Color("#9e83c1"), 50, 17)
+	trade.disabled = not human_turn or phase != "actions" or _alive_player_count() < 2
+	trade.pressed.connect(_show_trade)
+	column.add_child(trade)
+	var ledger := _button(_tr("ledger"), Color("#759552"), 50, 17)
+	ledger.pressed.connect(_show_ledger)
+	column.add_child(ledger)
+	var rules := _button(_tr("rules"), Color("#40515b"), 50, 17)
+	rules.pressed.connect(_show_rules)
+	column.add_child(rules)
+	var finish := _button(_tr("end_match"), RED, 50, 17)
+	finish.disabled = not human_turn or phase != "actions"
+	finish.pressed.connect(_confirm_finish_match)
+	column.add_child(finish)
+	var close := _button(_tr("back_to_game"), BLUE)
+	close.pressed.connect(_show_game)
+	column.add_child(close)
+
 func _show_portfolio() -> void:
 	if game.state.is_empty():
 		return
 	screen_name = "portfolio"
+	var players: Array = game.state["players"]
+	var player_id := clampi(int(game.state.get("turn", 0)), 0, players.size() - 1)
+	var player: Dictionary = players[player_id]
 	var column := _begin_layout(_tr("portfolio_title"))
 	_add_header(_tr("portfolio_title"), true)
-	for player_id in range(game.state["players"].size()):
-		var total_income := 0
-		for tile_index in BankGameModel.country_tiles():
-			if int(game.state["tile_owners"][tile_index]) == player_id:
-				total_income += game.income_for_tile(tile_index)
-		var worth: Dictionary = game.get_net_worth(player_id)
-		var summary := _panel(Color("#18262f"), PLAYER_COLORS[player_id])
-		summary.add_child(_label("%s  %s\n%s: %s · %s: %d\n%s: %s · %s: %s" % [_player_symbol(player_id), str(game.state["players"][player_id]["name"]), _tr("balance"), _money(int(game.state["players"][player_id]["balance"])), _tr("countries"), game.count_owned_properties(player_id), _tr("income"), _money(total_income), _tr("net_worth"), _money(int(worth.get("net_worth", 0)))], 16, PLAYER_COLORS[player_id]))
-		column.add_child(summary)
-	for group_id in range(6):
-		var group_tiles: Array[int] = game.group_tiles(group_id)
-		var complete: bool = game.owns_complete_group(int(game.state.get("turn", 0)), group_id)
-		var heading := _tr("group") + " " + str(group_id + 1) + " · " + (_tr("group_complete") if complete else _tr("group_incomplete"))
-		var group_panel := _panel(GROUP_COLORS[group_id].darkened(0.56), GROUP_COLORS[group_id])
-		var content := VBoxContainer.new()
-		content.add_child(_label(heading, 17, GROUP_COLORS[group_id]))
-		for tile_index in group_tiles:
-			var owner := int(game.state["tile_owners"][tile_index])
-			var level := int(game.state["development"][tile_index])
-			var tile_line := "%s %s · %s: %s · %s: %s · %s %d" % [_flag(tile_index), _tile_name(tile_index), _tr("owner"), _tr("unowned") if owner < 0 else str(game.state["players"][owner]["name"]), _tr("rent"), _money(game.rent_for_tile(tile_index)), _tr("level"), level]
-			content.add_child(_label(tile_line, 15, TEXT))
-		group_panel.add_child(content)
-		column.add_child(group_panel)
-	var assets := _panel()
-	var asset_box := VBoxContainer.new()
-	asset_box.add_child(_label(_tr("asset_section"), 18, GOLD))
-	var investment_count := 0
-	for investment in game.state.get("investments", []):
-		investment_count += 1
-		asset_box.add_child(_label("%s · %s · %s: %s" % [_investment_name(str(investment["type"])), _tile_name(int(investment["tile"])), _tr("owner"), str(game.state["players"][int(investment["owner"])]["name"])], 15, MUTED))
-	if investment_count == 0:
-		asset_box.add_child(_label(_tr("no_investments"), 15, MUTED))
-	assets.add_child(asset_box)
-	column.add_child(assets)
+	var total_income := 0
+	for tile_index in game.country_tiles():
+		if int(game.state["tile_owners"][tile_index]) == player_id:
+			total_income += game.income_for_tile(tile_index)
+	var worth: Dictionary = game.get_net_worth(player_id)
+	var summary := _panel(Color("#18262f"), PLAYER_COLORS[player_id])
+	summary.add_child(_label("%s  %s\n%s: %s · %s: %d\n%s: %s · %s: %s" % [_player_symbol(player_id), str(player["name"]), _tr("balance"), _money(int(player["balance"])), _tr("countries"), game.count_owned_properties(player_id), _tr("income"), _money(total_income), _tr("net_worth"), _money(int(worth.get("net_worth", 0)))], 16, PLAYER_COLORS[player_id]))
+	column.add_child(summary)
+	var owned_count := 0
+	for tile_index in game.country_tiles():
+		if int(game.state["tile_owners"][tile_index]) != player_id:
+			continue
+		owned_count += 1
+		var tile: Dictionary = BankGameModel.BOARD[tile_index]
+		var level := int(game.state["development"][tile_index])
+		var text := "%s %s\n%s: %s · %s: %s\n%s: %s · %s: %d/%d" % [_flag(tile_index), _tile_name(tile_index), _tr("price"), _money(int(tile["price"])), _tr("rent"), _money(game.rent_for_tile(tile_index)), _tr("income"), _money(game.income_for_tile(tile_index)), _tr("development"), level, BankGameModel.DEV_COSTS.size()]
+		if game.owns_complete_group(player_id, int(tile["group"])):
+			text += "\n" + _tr("group_bonus")
+		var property_panel := _panel(PANEL_ALT, GROUP_COLORS[int(tile["group"])])
+		property_panel.add_child(_label(text, 15, TEXT))
+		column.add_child(property_panel)
+	if owned_count == 0:
+		column.add_child(_label(_tr("no_properties"), 17, MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	var investments: Array = game.state.get("investments", [])
+	var owned_investments := 0
+	for investment in investments:
+		if int(investment.get("owner", -1)) != player_id:
+			continue
+		owned_investments += 1
+		var text := "%s · %s · %s" % [_investment_name(str(investment["type"])), _tile_name(int(investment["tile"])), _tr("owner_you")]
+		var investment_panel := _panel(PANEL_ALT, GREEN.darkened(0.3))
+		investment_panel.add_child(_label(text, 15, TEXT))
+		column.add_child(investment_panel)
+	if owned_count == 0 and owned_investments == 0:
+		column.add_child(_label(_tr("no_investments"), 15, MUTED))
 	var close := _button(_tr("back_to_game"), BLUE)
 	close.pressed.connect(_show_game)
 	column.add_child(close)

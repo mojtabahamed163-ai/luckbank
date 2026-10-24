@@ -88,7 +88,7 @@
       "rent_after": "الإيجار بعد التطوير",
       "income_after": "الدخل بعد التطوير",
       "max_level": "وصلت لأعلى مستوى",
-      "portfolio_title": "الممتلكات والمجموعات",
+      "portfolio_title": "الدول التي أملكها",
       "group_complete": "مكتملة · إيجار +25%",
       "group_incomplete": "غير مكتملة",
       "asset_value": "قيمة التصفية",
@@ -253,7 +253,9 @@
       "category_trade": "صفقة",
       "category_bankruptcy": "إفلاس",
       "category_expense": "مصروف",
-      "category_income": "دخل"
+      "category_income": "دخل",
+      "more": "المزيد",
+      "tile_info_button": "تفاصيل الخانة"
     },
     "tiles": [
       "البداية",
@@ -471,7 +473,7 @@
       "rent_after": "Rent after upgrade",
       "income_after": "Income after upgrade",
       "max_level": "Maximum level reached",
-      "portfolio_title": "Portfolio & groups",
+      "portfolio_title": "My countries",
       "group_complete": "Complete · rent +25%",
       "group_incomplete": "Incomplete",
       "asset_value": "Liquidation value",
@@ -636,7 +638,9 @@
       "category_trade": "Trade",
       "category_bankruptcy": "Bankruptcy",
       "category_expense": "Expense",
-      "category_income": "Income"
+      "category_income": "Income",
+      "more": "More",
+      "tile_info_button": "Tile details"
     },
     "tiles": [
       "Start",
@@ -854,7 +858,7 @@
       "rent_after": "Alquiler tras la mejora",
       "income_after": "Ingreso tras la mejora",
       "max_level": "Nivel máximo alcanzado",
-      "portfolio_title": "Propiedades y grupos",
+      "portfolio_title": "Mis países",
       "group_complete": "Completo · alquiler +25%",
       "group_incomplete": "Incompleto",
       "asset_value": "Valor de liquidación",
@@ -1019,7 +1023,9 @@
       "category_trade": "Intercambio",
       "category_bankruptcy": "Quiebra",
       "category_expense": "Gasto",
-      "category_income": "Ingreso"
+      "category_income": "Ingreso",
+      "more": "Más",
+      "tile_info_button": "Detalles de la casilla"
     },
     "tiles": [
       "Inicio",
@@ -1237,7 +1243,7 @@
       "rent_after": "Loyer après amélioration",
       "income_after": "Revenu après amélioration",
       "max_level": "Niveau maximal atteint",
-      "portfolio_title": "Patrimoine et groupes",
+      "portfolio_title": "Mes pays",
       "group_complete": "Complet · loyer +25%",
       "group_incomplete": "Incomplet",
       "asset_value": "Valeur de liquidation",
@@ -1402,7 +1408,9 @@
       "category_trade": "Échange",
       "category_bankruptcy": "Faillite",
       "category_expense": "Dépense",
-      "category_income": "Revenu"
+      "category_income": "Revenu",
+      "more": "Plus",
+      "tile_info_button": "Détails de la case"
     },
     "tiles": [
       "Départ",

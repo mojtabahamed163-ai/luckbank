@@ -29,6 +29,15 @@ func _run() -> void:
 	assert(app.board_surface.size.x > app.board_surface.size.y)
 	assert(app.board_surface.get_child_count() == 41)
 	assert(app.center_panel.size.x > app.center_panel.size.y)
+	app.game.state["pending_property"] = 1
+	app.game.state["phase"] = "pending_purchase"
+	app._update_game_view()
+	assert(app.purchase_panel.visible)
+	assert(not app.portfolio_button.get_parent().visible)
+	assert(not app.tile_info_button.get_parent().visible)
+	app.game.state["pending_property"] = -1
+	app.game.state["phase"] = "actions"
+	app._update_game_view()
 	var seen: Dictionary = {}
 	for tile_index in range(40):
 		var coordinate: Vector2i = app._ring_coordinate(tile_index)
@@ -68,6 +77,19 @@ func _run() -> void:
 		app._show_portfolio()
 		await process_frame
 		assert(app.screen_name == "portfolio")
+		assert(_contains_text(app.main_column, app._tile_name(1)))
+		assert(_contains_text(app.main_column, app._tile_name(2)))
+		assert(not _contains_text(app.main_column, app._tile_name(8)))
+		app._show_more_actions()
+		await process_frame
+		assert(app.screen_name == "more")
+		assert(_contains_text(app.main_column, app._tr("market")))
+		assert(_contains_text(app.main_column, app._tr("rules")))
+		app.selected_tile = 2
+		app._show_tile_information()
+		await process_frame
+		assert(app.screen_name == "tile_information")
+		assert(_contains_text(app.main_column, app._tile_name(2)))
 		app._show_trade()
 		await process_frame
 		assert(app.screen_name == "trade")
@@ -80,12 +102,14 @@ func _run() -> void:
 		app._show_settings()
 		await process_frame
 		assert(app.screen_name == "settings")
-	print("[luckbank-ui-smoke] PASS setup/4-player start/40-tile board and eight pages in ar/en/es/fr")
+	print("[luckbank-ui-smoke] PASS setup, 40-tile board, portfolio, more menu, tile details and core pages in ar/en/es/fr")
 	app.queue_free()
 	quit()
 
 func _contains_text(node: Node, needle: String) -> bool:
 	if node is Button and needle in (node as Button).text:
+		return true
+	if node is Label and needle in (node as Label).text:
 		return true
 	for child in node.get_children():
 		if _contains_text(child, needle):

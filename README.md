@@ -35,7 +35,7 @@
 
 ## التثبيت والتوافق
 
-APK موقّع بتوقيع Debug للتثبيت اليدوي، وليس إصدار متجر. يضم ARMv7 وARM64، ويطلب Android API 24 على الأقل، ولا يطلب إذن الإنترنت. ملف Manifest يقفل العرض على Landscape. يُتوقع توافقه مع Infinix SMART 7 HD بحسب المواصفات المنشورة، لكن لم يُختبر على ذلك الهاتف مباشرة؛ راجع [تقرير التحقق](docs/verification-1.0.4.md).
+APK موقّع بتوقيع Debug للتثبيت اليدوي، وليس إصدار متجر. يضم ARMv7 وARM64، ويطلب Android API 24 على الأقل، ولا يطلب إذن الإنترنت. ملف Manifest يقفل العرض على Landscape. يُتوقع توافقه مع Infinix SMART 7 HD بحسب المواصفات المنشورة، لكن لم يُختبر على ذلك الهاتف مباشرة؛ راجع [تقرير التحقق](docs/verification-1.0.5.md).
 
 ## فتح المشروع والاختبارات
 
@@ -53,10 +53,11 @@ xvfb-run -a -s '-screen 0 1400x900x24' \
   --script res://test/ui_smoke.gd
 ```
 
-نجحت اختبارات النموذج **1257/1257**، ونجح فحص واجهات البدء واللعب والصفحات الثماني بأربع لغات. تعذرت تجربة تثبيت APK على جهاز Android فعلي. صدّر Android من preset `Android` باستخدام قالب Godot المطابق وJDK وAndroid SDK؛ تفاصيل البيئة وتحذير Build-Tools 29.0.3 موجودة في [سجل بيئة البناء](docs/android-build-environment.md).
+نجحت اختبارات القواعد والاقتصاد **1265/1265**، كما نجح فحص واجهة اللوحة وقوائم الممتلكات والمزيد وتفاصيل الخانات في أربع لغات. تعذرت تجربة تثبيت APK على جهاز Android فعلي. صدّر Android من preset `Android` باستخدام قالب Godot المطابق وJDK وAndroid SDK؛ تفاصيل البيئة وتحذير Build-Tools 29.0.3 موجودة في [سجل بيئة البناء](docs/android-build-environment.md).
 
 ## سجل التغيير والترخيص
 
+- [ملاحظات إصدار 1.0.5](docs/release-notes-v1.0.5.md)
 - [ملاحظات إصدار 1.0.4](docs/release-notes-v1.0.4.md)
-- [تقرير التحقق والتوافق](docs/verification-1.0.4.md)
-- الخط العربي Amiri مرخص بـOFL، وتراخيص Noto Color Emoji مرفقة في `assets/fonts/`.
+- [تقرير التحقق والتوافق](docs/verification-1.0.5.md)
+- واجهة اللعب تستخدم Noto Sans Arabic لقراءة واضحة؛ ترخيصه وترخيص Amiri وNoto Color Emoji مرفقة في `assets/fonts/`.
