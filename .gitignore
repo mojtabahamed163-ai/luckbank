@@ -1,0 +1,12 @@
+.godot/
+.build/
+node_modules/
+site/
+dist/
+build/
+*.apk
+*.zip
+*.log
+.env
+.env.*
+.DS_Store

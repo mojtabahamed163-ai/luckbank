@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "kind": "scene",
+      "path": "res://test/test_suite.tscn",
+      "expect": "[luckbank-tests] PASS: deterministic board-game checks",
+      "profile": "source"
+    }
+  ]
+}

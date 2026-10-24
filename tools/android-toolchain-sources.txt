@@ -1,0 +1,13 @@
+Luckbank Android export toolchain (official upstream sources)
+
+Godot engine used: 4.7.2.stable.official.ed1daf0bf (preinstalled in the sandbox).
+Official GitHub release page/API: https://github.com/godotengine/godot/releases/tag/4.7.2-stable
+Official full export-template archive: https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
+The archive is 1,281,349,702 bytes. Only its embedded `templates/android_debug.apk` member was retrieved via HTTP byte ranges and CRC-verified (expanded size 127,260,725 bytes); the complete multi-platform archive was not downloaded.
+
+Google Android command-line tools (Linux): https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+Installed SDK packages: `platform-tools` 37.0.1, `platforms;android-35`, `build-tools;35.0.0`.
+Java: OpenJDK 21 at `/usr/lib/jvm/java-21-openjdk-amd64`.
+Signing: local debug keystore at `~/.local/share/godot/keystores/debug.keystore`, generated locally with the standard Android debug alias/password for a debug-only APK. It is not a release/publishing certificate.
+
+Only publicly free upstream components were used. Android Internet permission is disabled in the Android export preset; the game does not make network requests.

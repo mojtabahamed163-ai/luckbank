@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "title": "اختبار بنك الحظ",
+  "description": "لعبة لوحية اقتصادية عربية ضد الكمبيوتر: ارمِ النرد، اشترِ الدول، اجمع الإيجارات، وحاول دفع خصمك إلى الإفلاس. تعمل دون اتصال بالإنترنت.",
+  "defaultCaptions": {},
+  "assets": {
+    "og": "assets/share/luckbank-og.png",
+    "favicon": "assets/brand/luckbank-icon.png"
+  }
+}
