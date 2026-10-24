@@ -7,17 +7,17 @@ const LOCALE_FILE := "res://localization/luckbank.json"
 const SAVE_FILE := "user://luckbank-save.json"
 const SETTINGS_FILE := "user://luckbank-settings.cfg"
 
-const BG := Color("#0b1220")
-const PANEL := Color("#172333")
-const PANEL_ALT := Color("#203047")
-const TEXT := Color("#f7f5ef")
-const MUTED := Color("#a9b7c7")
-const GOLD := Color("#f1c66a")
-const GREEN := Color("#5bd1a4")
-const BLUE := Color("#6bb7ff")
-const RED := Color("#f07f75")
-const GROUP_COLORS := [Color("#168a78"), Color("#246a9b"), Color("#7654a8"), Color("#a46b35"), Color("#9b4563"), Color("#597d42")]
-const PLAYER_COLORS := [Color("#f1c66a"), Color("#6bb7ff"), Color("#5bd1a4"), Color("#f07f75")]
+const BG := Color("#3f6d59")
+const PANEL := Color("#f4e6c2")
+const PANEL_ALT := Color("#ead2a1")
+const TEXT := Color("#322c25")
+const MUTED := Color("#756a5b")
+const GOLD := Color("#b8752f")
+const GREEN := Color("#3d9968")
+const BLUE := Color("#397e9c")
+const RED := Color("#b74e45")
+const GROUP_COLORS := [Color("#d28a4b"), Color("#5d9db3"), Color("#9c79b5"), Color("#ce7060"), Color("#c76c91"), Color("#78a55d")]
+const PLAYER_COLORS := [Color("#e4a72d"), Color("#3989c4"), Color("#3aa875"), Color("#d6534b")]
 const PLAYER_SYMBOLS := ["●١", "◆٢", "▲٣", "■٤"]
 const LOCALE_IDS := ["ar", "en", "es", "fr"]
 
@@ -36,8 +36,8 @@ class DiceFace extends Control:
 		shadow.set_corner_radius_all(int(size.x * 0.16))
 		draw_style_box(shadow, Rect2(die_rect.position + Vector2(0, size.y * 0.035), die_rect.size))
 		var die := StyleBoxFlat.new()
-		die.bg_color = Color("#fffdf6")
-		die.border_color = Color("#d8b65f")
+		die.bg_color = Color("#fffaf0")
+		die.border_color = Color("#8f6a36")
 		die.set_border_width_all(maxi(2, int(size.x * 0.035)))
 		die.set_corner_radius_all(int(size.x * 0.16))
 		draw_style_box(die, die_rect)
@@ -58,7 +58,7 @@ class DiceFace extends Control:
 			6: points = [Vector2(0.25, 0.25), middle_left, bottom_left, top_right, middle_right, right]
 		var radius := minf(die_rect.size.x, die_rect.size.y) * 0.085
 		for point in points:
-			draw_circle(die_rect.position + Vector2(point.x * die_rect.size.x, point.y * die_rect.size.y), radius, Color("#17304b"))
+				draw_circle(die_rect.position + Vector2(point.x * die_rect.size.x, point.y * die_rect.size.y), radius, Color("#273a43"))
 
 class PlayerToken extends Control:
 	var token_color := Color.WHITE
@@ -174,6 +174,7 @@ var status_round_label: Label
 var status_phase_label: Label
 var dice_value_label: Label
 var feedback_label: Label
+var event_log_label: Label
 var tile_detail_label: Label
 var purchase_panel: PanelContainer
 var purchase_description: Label
@@ -680,12 +681,12 @@ func _show_game() -> void:
 		corner_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if tile_index == 0:
 			corner_art.configure("start")
-		elif tile_index == 10:
-			corner_art.configure("jail")
+		elif tile_index == BankGameModel.GLOBAL_MARKET_TILE:
+			corner_art.configure("market")
 		elif tile_index == 20:
 			corner_art.configure("rest")
-		elif tile_index == 30:
-			corner_art.configure("market")
+		elif tile_index == BankGameModel.JAIL_TILE:
+			corner_art.configure("jail")
 		else:
 			corner_art.visible = false
 		tile_content.add_child(corner_art)
@@ -715,7 +716,7 @@ func _show_game() -> void:
 		player_tokens.append(token)
 
 	center_panel = PanelContainer.new()
-	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#18262f"), Color("#8e7947"), 20))
+	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#f6e9c7"), Color("#8f6338"), 20))
 	board_surface.add_child(center_panel)
 	var center_margin := MarginContainer.new()
 	center_margin.add_theme_constant_override("margin_left", 8)
@@ -758,6 +759,25 @@ func _show_game() -> void:
 	tile_info_button.pressed.connect(_show_tile_information)
 	tile_info_row.add_child(tile_info_button)
 	center_content.add_child(tile_info_row)
+	var playmat := _panel(Color("#ead6a9"), Color("#b47a41"), 14)
+	var playmat_box := VBoxContainer.new()
+	playmat_box.add_child(_label("قطع اللعب", 14, Color("#6b4d2e"), HORIZONTAL_ALIGNMENT_CENTER))
+	var pieces_row := HBoxContainer.new()
+	pieces_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	pieces_row.add_theme_constant_override("separation", 6)
+	for player_id in range(game.state["players"].size()):
+		var piece := _label("%s  %s" % [_player_symbol(player_id), str(game.state["players"][player_id]["name"])] , 13, PLAYER_COLORS[player_id % PLAYER_COLORS.size()], HORIZONTAL_ALIGNMENT_CENTER)
+		piece.custom_minimum_size = Vector2(92, 28)
+		pieces_row.add_child(piece)
+	playmat_box.add_child(pieces_row)
+	playmat.add_child(playmat_box)
+	center_content.add_child(playmat)
+	var log_panel := _panel(Color("#fbf1d4"), Color("#c18b53"), 12)
+	event_log_label = _label("", 12, Color("#514435"), HORIZONTAL_ALIGNMENT_RIGHT)
+	event_log_label.custom_minimum_size.y = 58
+	event_log_label.max_lines_visible = 4
+	log_panel.add_child(event_log_label)
+	center_content.add_child(log_panel)
 	var dice_row := HBoxContainer.new()
 	dice_row.add_theme_constant_override("separation", 8)
 	dice_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -799,7 +819,7 @@ func _show_game() -> void:
 	feedback_label = _label("", 13, last_feedback_color, HORIZONTAL_ALIGNMENT_CENTER)
 	feedback_label.clip_text = true
 	center_content.add_child(feedback_label)
-	purchase_panel = _panel(Color("#3a3020"), GOLD)
+	purchase_panel = _panel(Color("#f2d39a"), GOLD)
 	var purchase_box := VBoxContainer.new()
 	purchase_description = _label("", 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	purchase_box.add_child(purchase_description)
@@ -816,12 +836,12 @@ func _show_game() -> void:
 	purchase_box.add_child(purchase_row)
 	purchase_panel.add_child(purchase_box)
 	center_content.add_child(purchase_panel)
-	obligation_panel = _panel(Color("#3c2528"), RED)
+	obligation_panel = _panel(Color("#f0c4ad"), RED)
 	obligation_content = VBoxContainer.new()
 	obligation_content.add_theme_constant_override("separation", 7)
 	obligation_panel.add_child(obligation_content)
 	center_content.add_child(obligation_panel)
-	result_panel = _panel(Color("#1c2e2a"), GREEN)
+	result_panel = _panel(Color("#c9e3c8"), GREEN)
 	result_content = VBoxContainer.new()
 	result_panel.add_child(result_content)
 	center_content.add_child(result_panel)
@@ -846,9 +866,9 @@ func _layout_ring_tiles() -> void:
 	var board_size := board_surface.size
 	if board_size.x < 100.0 or board_size.y < 100.0:
 		return
-	# Keep corner tiles prominent, while giving the left/right columns enough
-	# height for complete names and a clearly readable amount.
-	var corner := minf(board_size.y * 0.13, board_size.x * 0.095)
+	# Use a paper-board proportion: side cells are about 90% of a corner cell,
+	# leaving the center large enough for the dice, pieces, and event log.
+	var corner := minf(board_size.y / 10.1, board_size.x * 0.095)
 	var horizontal_step := (board_size.x - corner * 2.0) / 9.0
 	var vertical_step := (board_size.y - corner * 2.0) / 9.0
 	center_panel.position = Vector2(corner, corner)
@@ -878,7 +898,7 @@ func _layout_ring_tiles() -> void:
 		tile_button.size = rect.size
 		var side_tile := (coord.x == 0 or coord.x == 10) and coord.y > 0 and coord.y < 10
 		var full_name := _tile_name(tile_index)
-		var title_size := (12 if full_name.length() > 17 else 13) if side_tile else font_size
+		var title_size := (13 if full_name.length() > 17 else 14) if side_tile else font_size
 		var value_size := 16 if side_tile else clampi(font_size + 2, 14, 18)
 		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 10 if side_tile else 10)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
@@ -912,6 +932,8 @@ func _update_game_view() -> void:
 		dice_face.set_face(maxi(1, int(game.state.get("last_dice", 0))))
 		feedback_label.text = last_feedback.replace("\n", " · ")
 		feedback_label.add_theme_color_override("font_color", last_feedback_color)
+		if is_instance_valid(event_log_label):
+			event_log_label.text = _event_log_text()
 	var human_turn: bool = is_active and game.is_human_player(turn_id)
 	roll_button.visible = is_active
 	end_turn_button.visible = human_turn and phase == "actions"
@@ -1026,6 +1048,8 @@ func _refresh_board() -> void:
 		var owner_mark := "  " + _player_symbol(owner) if tile_type == "country" and owner >= 0 else ""
 		tile_id_labels[tile_index].text = "%d %s%s" % [tile_index, _flag(tile_index), owner_mark]
 		tile_labels[tile_index].text = title
+		tile_id_labels[tile_index].add_theme_color_override("font_color", Color("#f8e8bd"))
+		tile_labels[tile_index].add_theme_color_override("font_color", Color("#fff4d2"))
 		tile_value_labels[tile_index].text = value
 		tile_value_labels[tile_index].add_theme_color_override("font_color", value_color)
 		var cell := tile_buttons[tile_index]
@@ -1166,6 +1190,16 @@ func _event_color(card: Dictionary) -> Color:
 		"rare": return Color("#b58cff")
 		"penalty": return Color("#68727a")
 	return BLUE
+
+func _event_log_text() -> String:
+	var entries: Array = game.state.get("log", [])
+	if entries.is_empty():
+		return "لا توجد أحداث بعد"
+	var recent: Array[String] = []
+	var start := maxi(0, entries.size() - 4)
+	for index in range(start, entries.size()):
+		recent.append("• " + str(entries[index]))
+	return "\n".join(recent)
 
 func _landing_summary(player_id: int, tile_index: int, crossings: int) -> String:
 	var tile: Dictionary = BankGameModel.BOARD[tile_index]
@@ -1789,9 +1823,9 @@ func _populate_obligation_panel(player_id: int) -> void:
 		var player: Dictionary = game.state["players"][player_id]
 		var remaining := int(player.get("jail_turns_remaining", 0))
 		obligation_content.add_child(_label(_tr("jail_status_title"), 19, RED, HORIZONTAL_ALIGNMENT_CENTER))
-		obligation_content.add_child(_label(_trf("jail_status_detail", {"turns": remaining, "amount": _money(int(BankGameModel.BOARD[10].get("bail", 500)))}), 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER))
+		obligation_content.add_child(_label(_trf("jail_status_detail", {"turns": remaining, "amount": _money(int(BankGameModel.BOARD[BankGameModel.JAIL_TILE].get("bail", 500)))}), 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER))
 		var bail := _button(_tr("jail_pay_bail"), GOLD, 48, 16)
-		bail.disabled = int(game.get_balance(player_id)) < int(BankGameModel.BOARD[10].get("bail", 500))
+		bail.disabled = int(game.get_balance(player_id)) < int(BankGameModel.BOARD[BankGameModel.JAIL_TILE].get("bail", 500))
 		bail.pressed.connect(_perform_jail_bail)
 		obligation_content.add_child(bail)
 		var wait := _secondary_button(_tr("jail_wait"), 46)

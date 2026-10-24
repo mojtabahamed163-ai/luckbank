@@ -13,6 +13,8 @@ const PLAYER_CPU := 1
 const SAVE_PATH := "user://luckbank-save.json"
 const SUDAN_TILE := 1
 const EGYPT_TILE := 2
+const GLOBAL_MARKET_TILE := 10
+const JAIL_TILE := 30
 const JAIL_TURNS := 3
 const DEV_COSTS := [500, 800, 1200]
 const MARKET_PRODUCTS := {
@@ -61,7 +63,7 @@ const BOARD := [
 	{"id": 7, "type": "country", "name": "كينيا", "price": 750, "rent": 75, "income": 35, "group": 1},
 	{"id": 8, "type": "country", "name": "السعودية", "price": 1500, "rent": 150, "income": 75, "group": 1, "feature": "الطاقة"},
 	{"id": 9, "type": "country", "name": "الإمارات", "price": 1700, "rent": 170, "income": 85, "group": 1, "feature": "التجارة والخدمات"},
-	{"id": 10, "type": "jail", "name": "السجن", "bail": 500},
+	{"id": 10, "type": "market", "name": "السوق العالمي", "market": "global"},
 	{"id": 11, "type": "country", "name": "تركيا", "price": 1200, "rent": 120, "income": 60, "group": 1},
 	{"id": 12, "type": "country", "name": "الهند", "price": 1300, "rent": 130, "income": 65, "group": 1},
 	{"id": 13, "type": "market", "name": "السوق والاستثمار", "market": "local"},
@@ -81,7 +83,7 @@ const BOARD := [
 	{"id": 27, "type": "country", "name": "إيطاليا", "price": 1700, "rent": 170, "income": 85, "group": 3},
 	{"id": 28, "type": "country", "name": "إسبانيا", "price": 1600, "rent": 160, "income": 80, "group": 4},
 	{"id": 29, "type": "country", "name": "المملكة المتحدة", "price": 2400, "rent": 240, "income": 120, "group": 4},
-	{"id": 30, "type": "market", "name": "السوق العالمي", "market": "global"},
+	{"id": 30, "type": "jail", "name": "السجن", "bail": 500},
 	{"id": 31, "type": "country", "name": "النرويج", "price": 1800, "rent": 180, "income": 90, "group": 4},
 	{"id": 32, "type": "country", "name": "روسيا", "price": 1900, "rent": 190, "income": 95, "group": 4},
 	{"id": 33, "type": "country", "name": "البرازيل", "price": 1400, "rent": 140, "income": 70, "group": 4},
@@ -889,7 +891,7 @@ func end_turn(player_id: int) -> Dictionary:
 func pay_jail_bail(player_id: int) -> Dictionary:
 	if not _can_act(player_id, ["jail"]):
 		return _failure("لا توجد كفالة سجن مستحقة الآن.")
-	var bail := int(BOARD[10].get("bail", 500))
+	var bail := int(BOARD[JAIL_TILE].get("bail", 500))
 	if not _commit_payment(player_id, bail, "كفالة الخروج من السجن", -1, "jail_bail"):
 		return _failure("لا يكفي الرصيد لكفالة السجن؛ صفِّ أصلًا لتسوية الالتزام.")
 	state["players"][player_id]["jail_turns_remaining"] = 0

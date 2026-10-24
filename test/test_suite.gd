@@ -61,10 +61,10 @@ func _test_localization() -> void:
 		return
 	var base: Dictionary = data.get("ar", {}).get("ui", {})
 	var expected_special_tiles: Dictionary = {
-		"ar": ["السجن", "الراحة الاقتصادية"],
-		"en": ["Jail", "Economic rest"],
-		"es": ["Cárcel", "Descanso económico"],
-		"fr": ["Prison", "Repos économique"]
+		"ar": ["السوق العالمي", "الراحة الاقتصادية"],
+		"en": ["World market", "Economic rest"],
+		"es": ["Mercado mundial", "Descanso económico"],
+		"fr": ["Marché mondial", "Repos économique"]
 	}
 	for language in ["ar", "en", "es", "fr"]:
 		var locale: Dictionary = data.get(language, {})
@@ -74,7 +74,7 @@ func _test_localization() -> void:
 			_check(ui.has(key) and typeof(ui.get(key, null)) == TYPE_STRING, "%s translates UI key %s" % [language, key])
 		_check(locale.get("tiles", []).size() == Model.TILE_COUNT, "%s has names for all board tiles" % language)
 		var localized_tiles: Array = locale.get("tiles", [])
-		_check(localized_tiles[10] == expected_special_tiles[language][0] and localized_tiles[20] == expected_special_tiles[language][1], "%s places jail on 10 and rest on 20" % language)
+		_check(localized_tiles[Model.GLOBAL_MARKET_TILE] == expected_special_tiles[language][0] and localized_tiles[20] == expected_special_tiles[language][1], "%s places global market on 10 and rest on 20" % language)
 		_check(locale.get("events", []).size() == Model.EVENTS.size(), "%s has names for every event card" % language)
 		_check(locale.get("flags", []).size() == Model.TILE_COUNT, "%s has a marker for every tile" % language)
 
@@ -85,7 +85,7 @@ func _fresh(mode: String = Model.MODE_COMPUTER, names: Array = [], difficulty: S
 
 func _test_board_definition() -> void:
 	_check(Model.BOARD.size() == 40 and Model.TILE_COUNT == 40, "exactly 40 board spaces")
-	var expected_names := ["البداية", "السودان", "مصر", "المغرب", "جنوب أفريقيا", "ضريبة الخدمات العامة", "نيجيريا", "كينيا", "السعودية", "الإمارات", "السجن", "تركيا", "الهند", "السوق والاستثمار", "الصين", "حدث اقتصادي", "اليابان", "كوريا الجنوبية", "إندونيسيا", "سنغافورة", "الراحة الاقتصادية", "أستراليا", "نيوزيلندا", "حدث اقتصادي", "فرنسا", "حدث اقتصادي", "ألمانيا", "إيطاليا", "إسبانيا", "المملكة المتحدة", "السوق العالمي", "النرويج", "روسيا", "البرازيل", "الأرجنتين", "حدث اقتصادي", "المكسيك", "كندا", "الولايات المتحدة الأمريكية", "تشيلي"]
+	var expected_names := ["البداية", "السودان", "مصر", "المغرب", "جنوب أفريقيا", "ضريبة الخدمات العامة", "نيجيريا", "كينيا", "السعودية", "الإمارات", "السوق العالمي", "تركيا", "الهند", "السوق والاستثمار", "الصين", "حدث اقتصادي", "اليابان", "كوريا الجنوبية", "إندونيسيا", "سنغافورة", "الراحة الاقتصادية", "أستراليا", "نيوزيلندا", "حدث اقتصادي", "فرنسا", "حدث اقتصادي", "ألمانيا", "إيطاليا", "إسبانيا", "المملكة المتحدة", "السجن", "النرويج", "روسيا", "البرازيل", "الأرجنتين", "حدث اقتصادي", "المكسيك", "كندا", "الولايات المتحدة الأمريكية", "تشيلي"]
 	var actual_names: Array[String] = []
 	var counts := {"start": 0, "country": 0, "tax": 0, "event": 0, "rest": 0, "jail": 0, "market": 0}
 	for i in range(Model.BOARD.size()):
@@ -95,7 +95,8 @@ func _test_board_definition() -> void:
 		_check(int(tile["id"]) == i, "stable id %d" % i)
 	_check(actual_names == expected_names, "all names and tile order match the requested 40-square route")
 	_check(counts["country"] == 30 and counts["start"] == 1 and counts["tax"] == 1 and counts["event"] == 4 and counts["rest"] == 1 and counts["jail"] == 1 and counts["market"] == 2, "required board types include rest and jail")
-	_check(str(Model.BOARD[10]["type"]) == "jail" and int(Model.BOARD[10]["bail"]) == 500, "space 10 is jail with 500 bail")
+	_check(str(Model.BOARD[Model.GLOBAL_MARKET_TILE]["type"]) == "market" and str(Model.BOARD[Model.GLOBAL_MARKET_TILE]["market"]) == "global", "space 10 is the global market")
+	_check(str(Model.BOARD[Model.JAIL_TILE]["type"]) == "jail" and int(Model.BOARD[Model.JAIL_TILE]["bail"]) == 500, "space 30 is jail with 500 bail")
 	_check(str(Model.BOARD[20]["type"]) == "rest", "space 20 is the neutral economic rest space")
 	_check(Model.country_tiles().size() == 30, "exactly 30 purchasable countries")
 	for group_id in range(6):
@@ -172,9 +173,9 @@ func _test_taxes_and_rest() -> void:
 	_check(int(rest.get_balance(0)) == rest_before and str(rest.state["phase"]) == "actions", "space 20 rest has no automatic charge or reward")
 	_check(str(rest_result["messages"][0]).contains("راحة اقتصادية"), "space 20 describes free rest")
 	var jail = _fresh()
-	jail.state["players"][0]["position"] = 9
+	jail.state["players"][0]["position"] = 29
 	var jail_result: Dictionary = jail.roll(0, 1)
-	_check(int(jail.get_balance(0)) == 10000 and str(jail.state["phase"]) == "jail" and int(jail.state["players"][0]["jail_turns_remaining"]) == 3, "space 10 enters jail for three turns without an automatic debit")
+	_check(int(jail.get_balance(0)) == 10000 and str(jail.state["phase"]) == "jail" and int(jail.state["players"][0]["jail_turns_remaining"]) == 3, "space 30 enters jail for three turns without an automatic debit")
 	_check(str(jail_result["messages"][0]).contains("دخل"), "jail landing describes bail")
 	var bail_entries := 0
 	for entry in jail.state["ledger"]:
@@ -189,7 +190,7 @@ func _test_taxes_and_rest() -> void:
 			bail_entries += 1
 	_check(bail_entries == 1, "jail bail is recorded exactly once in the ledger")
 	var poor = _fresh()
-	poor.state["players"][0]["position"] = 9
+	poor.state["players"][0]["position"] = 29
 	poor.state["players"][0]["balance"] = 100
 	poor.roll(0, 1)
 	_check(str(poor.state["phase"]) == "jail" and int(poor.get_balance(0)) == 100, "unaffordable bail creates an obligation without negative balance")
@@ -211,7 +212,7 @@ func _test_stage_one_messages_and_jail_cycle() -> void:
 	_check(reward.get_balance(0) == balance_before_summary and event_transactions == 1, "an event is recorded once and cannot repeat its transaction")
 	var jailed = _fresh(Model.MODE_LOCAL, ["سجين", "مراقب"])
 	jailed.state["tile_owners"][Model.SUDAN_TILE] = 0
-	jailed.state["players"][0]["position"] = 9
+	jailed.state["players"][0]["position"] = 29
 	jailed.roll(0, 1)
 	var initial_balance := jailed.get_balance(0)
 	for jail_round in range(3):
@@ -221,7 +222,7 @@ func _test_stage_one_messages_and_jail_cycle() -> void:
 			jailed.state["phase"] = "actions"
 			jailed.end_turn(1)
 	_check(int(jailed.state["players"][0]["jail_turns_remaining"]) == 0 and str(jailed.state["phase"]) == "await_roll", "jail releases automatically after three turns")
-	_check(int(jailed.state["players"][0]["position"]) == 10 and int(jailed.get_balance(0)) == initial_balance + 240, "jail preserves position and pays periodic income without a start bonus")
+	_check(int(jailed.state["players"][0]["position"]) == Model.JAIL_TILE and int(jailed.get_balance(0)) == initial_balance + 240, "jail preserves position and pays periodic income without a start bonus")
 	var start_entries := 0
 	for entry in jailed.state["ledger"]:
 		if str(entry.get("category", "")) == "start":
