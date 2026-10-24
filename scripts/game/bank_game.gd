@@ -345,6 +345,11 @@ func _update_goals(player_id: int) -> void:
 			sectors[str(investment.get("type", ""))] = true
 	goals["diversified"]["progress"] = sectors.size()
 	goals["diversified"]["completed"] = sectors.size() >= int(goals["diversified"]["target"])
+	for goal_id in goals:
+		if bool(goals[goal_id].get("completed", false)) and not bool(goals[goal_id].get("rewarded", false)):
+			goals[goal_id]["rewarded"] = true
+			_credit(player_id, 300, "مكافأة الهدف الجانبي: " + str(goal_id), -1, "goal_reward")
+			_add_log("اكتمل الهدف %s للاعب %s؛ أضيفت مكافأة 300." % [str(goal_id), str(state["players"][player_id]["name"])])
 	state["goals"][player_id] = goals
 
 func _produce_market_supply(player_id: int) -> void:
@@ -965,6 +970,18 @@ func run_computer_actions(player_id: int) -> Array[String]:
 				if bool(invest_result.get("ok", false)):
 					decisions.append(str(invest_result["message"]))
 					break
+	if bool(state.get("can_market", false)) and difficulty != "easy" and int(state["players"][player_id]["balance"]) > reserve + 250:
+		var best_product := "food"
+		var best_ratio := -999.0
+		for product in market_products():
+			var quote: Dictionary = market_quote(str(product["id"]))
+			var ratio := float(int(quote["demand"]) - int(quote["supply"])) / float(maxi(1, int(quote["price"])))
+			if ratio > best_ratio:
+				best_ratio = ratio
+				best_product = str(product["id"])
+		var market_result := buy_market_product(player_id, best_product, 1)
+		if bool(market_result.get("ok", false)):
+			decisions.append("اشترى الكمبيوتر وحدة من %s وفق اتجاه السوق." % str(MARKET_PRODUCTS[best_product]["name"]))
 	return decisions
 
 func owns_sudan(player_id: int) -> bool:

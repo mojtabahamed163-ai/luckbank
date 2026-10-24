@@ -1567,6 +1567,16 @@ func _show_portfolio() -> void:
 	var summary := _panel(Color("#18262f"), PLAYER_COLORS[player_id])
 	summary.add_child(_label("%s  %s\n%s: %s · %s: %d\n%s: %s · %s: %s" % [_player_symbol(player_id), str(player["name"]), _tr("balance"), _money(int(player["balance"])), _tr("countries"), game.count_owned_properties(player_id), _tr("income"), _money(total_income), _tr("net_worth"), _money(int(worth.get("net_worth", 0)))], 16, PLAYER_COLORS[player_id]))
 	column.add_child(summary)
+	var goals: Dictionary = game.state.get("goals", [])[player_id] if game.state.get("goals", []).size() > player_id else {}
+	var achievements: Dictionary = game.state.get("achievements", [])[player_id] if game.state.get("achievements", []).size() > player_id else {}
+	var goals_panel := _panel(Color("#263846"), GOLD)
+	goals_panel.add_child(_label("الأهداف الجانبية\nالثروة: %s / %s %s\nالتنويع: %d / %s قطاعات" % [_money(int(goals.get("wealth", {}).get("progress", 0))), _money(int(goals.get("wealth", {}).get("target", 0))), "✓" if bool(goals.get("wealth", {}).get("completed", false)) else "", int(goals.get("diversified", {}).get("progress", 0)), str(goals.get("diversified", {}).get("target", 0))], 15, TEXT))
+	column.add_child(goals_panel)
+	var achieved_names: Array[String] = []
+	for achievement_id in achievements:
+		if bool(achievements[achievement_id]):
+			achieved_names.append(str(achievement_id))
+	column.add_child(_label("الإنجازات: " + (", ".join(achieved_names) if not achieved_names.is_empty() else "لا توجد إنجازات بعد"), 14, Color("#b58cff")))
 	var owned_count := 0
 	for tile_index in game.country_tiles():
 		if int(game.state["tile_owners"][tile_index]) != player_id:
@@ -1745,8 +1755,11 @@ func _show_trade_response() -> void:
 	accept.pressed.connect(_respond_trade.bind(true))
 	var reject := _button(_tr("reject"), RED)
 	reject.pressed.connect(_respond_trade.bind(false))
+	var counter := _secondary_button("تقديم عرض مضاد", 50)
+	counter.pressed.connect(_counter_trade)
 	row.add_child(accept)
 	row.add_child(reject)
+	row.add_child(counter)
 	column.add_child(row)
 
 func _respond_trade(accept: bool) -> void:
@@ -1756,6 +1769,18 @@ func _respond_trade(accept: bool) -> void:
 	last_feedback_color = GREEN if accept and bool(result.get("ok", false)) else MUTED
 	_save_game_state()
 	_show_game()
+
+func _counter_trade() -> void:
+	var offer: Dictionary = game.state.get("pending_trade", {})
+	var target := int(offer.get("to", -1))
+	var result: Dictionary = game.counter_offer(target, int(offer.get("ask_tile", -1)), int(offer.get("give_tile", -1)), int(offer.get("ask_cash", 0)), int(offer.get("give_cash", 0)))
+	last_feedback = "تم تقديم العرض المضاد." if bool(result.get("ok", false)) else str(result.get("message", _tr("unknown")))
+	last_feedback_color = Color("#b58cff") if bool(result.get("ok", false)) else RED
+	_save_game_state()
+	if bool(result.get("ok", false)):
+		_show_trade_response()
+	else:
+		_show_game()
 
 func _populate_obligation_panel(player_id: int) -> void:
 	for child in obligation_content.get_children():
