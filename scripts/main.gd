@@ -664,7 +664,7 @@ func _show_game() -> void:
 		var header := HBoxContainer.new()
 		header.layout_direction = Control.LAYOUT_DIRECTION_LTR
 		header.add_theme_constant_override("separation", 1)
-		header.custom_minimum_size = Vector2(0, 18)
+		header.custom_minimum_size = Vector2(0, 13)
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var id_label := _label("", 10, MUTED, HORIZONTAL_ALIGNMENT_LEFT)
 		id_label.text_direction = Control.TEXT_DIRECTION_LTR
@@ -697,7 +697,7 @@ func _show_game() -> void:
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(name_label)
 		var value_label := _label("", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-		value_label.custom_minimum_size = Vector2(0, 15)
+		value_label.custom_minimum_size = Vector2(0, 12)
 		value_label.clip_text = false
 		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_label)
@@ -716,13 +716,13 @@ func _show_game() -> void:
 		player_tokens.append(token)
 
 	center_panel = PanelContainer.new()
-	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#f6e9c7"), Color("#8f6338"), 20))
+	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#f7edcf"), Color("#5f8665"), 8))
 	board_surface.add_child(center_panel)
 	var center_margin := MarginContainer.new()
-	center_margin.add_theme_constant_override("margin_left", 8)
-	center_margin.add_theme_constant_override("margin_right", 8)
-	center_margin.add_theme_constant_override("margin_top", 6)
-	center_margin.add_theme_constant_override("margin_bottom", 6)
+	center_margin.add_theme_constant_override("margin_left", 5)
+	center_margin.add_theme_constant_override("margin_right", 5)
+	center_margin.add_theme_constant_override("margin_top", 5)
+	center_margin.add_theme_constant_override("margin_bottom", 5)
 	center_panel.add_child(center_margin)
 	var center_scroll := ScrollContainer.new()
 	center_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -759,9 +759,9 @@ func _show_game() -> void:
 	tile_info_button.pressed.connect(_show_tile_information)
 	tile_info_row.add_child(tile_info_button)
 	center_content.add_child(tile_info_row)
-	var playmat := _panel(Color("#ead6a9"), Color("#b47a41"), 14)
+	var playmat := _panel(Color("#e7ebcf"), Color("#6f936d"), 8)
 	var playmat_box := VBoxContainer.new()
-	playmat_box.add_child(_label("قطع اللعب", 14, Color("#6b4d2e"), HORIZONTAL_ALIGNMENT_CENTER))
+	playmat_box.add_child(_label("قطع اللعب", 14, Color("#3f654b"), HORIZONTAL_ALIGNMENT_CENTER))
 	var pieces_row := HBoxContainer.new()
 	pieces_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	pieces_row.add_theme_constant_override("separation", 6)
@@ -772,7 +772,7 @@ func _show_game() -> void:
 	playmat_box.add_child(pieces_row)
 	playmat.add_child(playmat_box)
 	center_content.add_child(playmat)
-	var log_panel := _panel(Color("#fbf1d4"), Color("#c18b53"), 12)
+	var log_panel := _panel(Color("#fff8df"), Color("#8aa676"), 8)
 	event_log_label = _label("", 12, Color("#514435"), HORIZONTAL_ALIGNMENT_RIGHT)
 	event_log_label.custom_minimum_size.y = 58
 	event_log_label.max_lines_visible = 4
@@ -866,41 +866,25 @@ func _layout_ring_tiles() -> void:
 	var board_size := board_surface.size
 	if board_size.x < 100.0 or board_size.y < 100.0:
 		return
-	# Use a paper-board proportion: side cells are about 90% of a corner cell,
-	# leaving the center large enough for the dice, pieces, and event log.
-	var corner := minf(board_size.y / 10.1, board_size.x * 0.095)
-	var horizontal_step := (board_size.x - corner * 2.0) / 9.0
-	var vertical_step := (board_size.y - corner * 2.0) / 9.0
-	center_panel.position = Vector2(corner, corner)
-	center_panel.size = Vector2(board_size.x - corner * 2.0, board_size.y - corner * 2.0)
-	var font_size := clampi(int(corner / 8.0), 12, 16)
+	# A real tabletop board uses the same square cell on every side.  Fit an
+	# 11x11 paper board inside the available area so the side cells are never
+	# narrower than the top cells.
+	var cell := minf(board_size.x, board_size.y) / 11.0
+	var board_origin := Vector2((board_size.x - cell * 11.0) * 0.5, (board_size.y - cell * 11.0) * 0.5)
+	center_panel.position = board_origin + Vector2(cell, cell)
+	center_panel.size = Vector2(cell * 9.0, cell * 9.0)
+	var font_size := clampi(int(cell / 5.0), 12, 15)
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var coord := _ring_coordinate(tile_index)
-		var rect := Rect2()
-		if coord.x == 0 and coord.y == 10:
-			rect = Rect2(0.0, board_size.y - corner, corner, corner)
-		elif coord.x == 10 and coord.y == 10:
-			rect = Rect2(board_size.x - corner, board_size.y - corner, corner, corner)
-		elif coord.x == 10 and coord.y == 0:
-			rect = Rect2(board_size.x - corner, 0.0, corner, corner)
-		elif coord.x == 0 and coord.y == 0:
-			rect = Rect2(0.0, 0.0, corner, corner)
-		elif coord.y == 10:
-			rect = Rect2(corner + horizontal_step * float(coord.x - 1), board_size.y - corner, horizontal_step, corner)
-		elif coord.y == 0:
-			rect = Rect2(corner + horizontal_step * float(coord.x - 1), 0.0, horizontal_step, corner)
-		elif coord.x == 10:
-			rect = Rect2(board_size.x - corner, corner + vertical_step * float(coord.y - 1), corner, vertical_step)
-		else:
-			rect = Rect2(0.0, corner + vertical_step * float(coord.y - 1), corner, vertical_step)
+		var rect := Rect2(board_origin + Vector2(coord) * cell, Vector2(cell, cell))
 		var tile_button := tile_buttons[tile_index]
 		tile_button.position = rect.position
 		tile_button.size = rect.size
-		var side_tile := (coord.x == 0 or coord.x == 10) and coord.y > 0 and coord.y < 10
+		var side_tile := coord.x == 0 or coord.x == 10
 		var full_name := _tile_name(tile_index)
-		var title_size := (13 if full_name.length() > 17 else 14) if side_tile else font_size
-		var value_size := 16 if side_tile else clampi(font_size + 2, 14, 18)
-		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 10 if side_tile else 10)
+		var title_size := 11 if full_name.length() > 15 else 12
+		var value_size := 11
+		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 8 if side_tile else 9)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
 		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)
 		for token in tile_token_rows[tile_index].get_children():

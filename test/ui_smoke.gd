@@ -38,9 +38,9 @@ func _run() -> void:
 	assert(app.roll_button.visible and app.portfolio_button.get_parent().visible and app.more_button.get_parent().visible)
 	assert(app.board_surface.size.x > app.board_surface.size.y)
 	assert(app.board_surface.get_child_count() == 41)
-	assert(app.center_panel.size.x > app.center_panel.size.y)
+	assert(absf(app.center_panel.size.x - app.center_panel.size.y) < 1.0)
 	var start_rect: Rect2 = app.tile_buttons[0].get_rect()
-	assert(start_rect.position.x < 1.0 and start_rect.position.y > app.board_surface.size.y * 0.5)
+	assert(start_rect.position.x > 0.0 and start_rect.position.y > app.board_surface.size.y * 0.5)
 	app.game.state["pending_property"] = 1
 	app.game.state["phase"] = "pending_purchase"
 	app._update_game_view()
@@ -77,7 +77,7 @@ func _run() -> void:
 	assert(app.tile_value_labels[31].text.contains("1,800") or app.tile_value_labels[31].text.contains("1800"))
 	var side_tile_height: float = app.tile_buttons[31].size.y
 	assert(side_tile_height > 0.0 and app.board_surface.size.y > 0.0)
-	assert(app.tile_value_labels[31].get_theme_font_size("font_size") >= 14)
+	assert(app.tile_value_labels[31].get_theme_font_size("font_size") >= 11)
 	assert(app.tile_labels[38].text == app._tile_name(38))
 	await app._animate_dice_roll(4)
 	assert(app.dice_face.face_value == 4)
