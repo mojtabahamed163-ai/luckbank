@@ -35,10 +35,10 @@ func _run() -> void:
 	assert(app.player_tokens.size() == 4)
 	assert(not app.player_tokens[0].is_computer and not app.player_tokens[1].is_computer)
 	assert(app.roll_button.text.is_empty() and app.dice_face != null)
-	assert(app.roll_button.visible and app.portfolio_button.get_parent().visible and app.more_button.get_parent().visible)
+	assert(app.roll_button.visible and app.find_child("BottomNavigation", true, false).visible)
 	assert(app.board_surface.size.x > app.board_surface.size.y)
 	assert(app.board_surface.get_child_count() == 41)
-	assert(absf(app.center_panel.size.x - app.center_panel.size.y) < 1.0)
+	assert(app.center_panel.size.x > app.center_panel.size.y)
 	var start_rect: Rect2 = app.tile_buttons[0].get_rect()
 	assert(start_rect.position.x > 0.0 and start_rect.position.y > app.board_surface.size.y * 0.5)
 	app.game.state["pending_property"] = 1

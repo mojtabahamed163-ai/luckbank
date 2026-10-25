@@ -7,9 +7,9 @@ const LOCALE_FILE := "res://localization/luckbank.json"
 const SAVE_FILE := "user://luckbank-save.json"
 const SETTINGS_FILE := "user://luckbank-settings.cfg"
 
-const BG := Color("#3f6d59")
-const PANEL := Color("#f4e6c2")
-const PANEL_ALT := Color("#ead2a1")
+const BG := Color("#061b2a")
+const PANEL := Color("#f7f0d9")
+const PANEL_ALT := Color("#eadfbe")
 const TEXT := Color("#322c25")
 const MUTED := Color("#756a5b")
 const GOLD := Color("#b8752f")
@@ -17,7 +17,7 @@ const GREEN := Color("#3d9968")
 const BLUE := Color("#397e9c")
 const RED := Color("#b74e45")
 const GROUP_COLORS := [Color("#d28a4b"), Color("#5d9db3"), Color("#9c79b5"), Color("#ce7060"), Color("#c76c91"), Color("#78a55d")]
-const PLAYER_COLORS := [Color("#e4a72d"), Color("#3989c4"), Color("#3aa875"), Color("#d6534b")]
+const PLAYER_COLORS := [Color("#238bd0"), Color("#d83f48"), Color("#20a978"), Color("#c7962f")]
 const PLAYER_SYMBOLS := ["●١", "◆٢", "▲٣", "■٤"]
 const LOCALE_IDS := ["ar", "en", "es", "fr"]
 
@@ -133,6 +133,43 @@ class CornerArt extends Control:
 			draw_arc(c, s * 0.29, 0.0, TAU, 24, ink, maxf(2.0, s * 0.035), true)
 			draw_line(c + Vector2(-s * 0.29, 0), c + Vector2(s * 0.29, 0), accent, maxf(1.5, s * 0.025), true)
 			draw_arc(c, s * 0.18, 0.0, TAU, 20, accent, maxf(1.5, s * 0.025), true)
+
+class WorldMapArt extends Control:
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		modulate = Color(1.0, 1.0, 1.0, 0.26)
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := Color("#6ba7ae")
+		var w := size.x
+		var h := size.y
+		var shapes := [
+			PackedVector2Array([Vector2(w * .08, h * .28), Vector2(w * .20, h * .17), Vector2(w * .31, h * .22), Vector2(w * .27, h * .43), Vector2(w * .17, h * .48), Vector2(w * .11, h * .40)]),
+			PackedVector2Array([Vector2(w * .29, h * .53), Vector2(w * .39, h * .48), Vector2(w * .49, h * .56), Vector2(w * .46, h * .77), Vector2(w * .36, h * .85), Vector2(w * .31, h * .70)]),
+			PackedVector2Array([Vector2(w * .48, h * .22), Vector2(w * .59, h * .16), Vector2(w * .70, h * .25), Vector2(w * .67, h * .43), Vector2(w * .58, h * .46), Vector2(w * .52, h * .36)]),
+			PackedVector2Array([Vector2(w * .64, h * .54), Vector2(w * .79, h * .48), Vector2(w * .91, h * .58), Vector2(w * .84, h * .76), Vector2(w * .72, h * .80), Vector2(w * .66, h * .69)])
+		]
+		for shape: PackedVector2Array in shapes:
+			draw_colored_polygon(shape, c)
+			draw_polyline(shape, Color(c, 0.42), 1.5, true)
+
+class AvatarIcon extends Control:
+	var avatar_color := Color.WHITE
+
+	func configure(color: Color) -> void:
+		avatar_color = color
+		queue_redraw()
+
+	func _draw() -> void:
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.44
+		draw_circle(center, radius, avatar_color)
+		draw_circle(center + Vector2(0, -radius * .22), radius * .20, Color("#ffffff"))
+		draw_colored_polygon(PackedVector2Array([
+			center + Vector2(-radius * .38, radius * .39), center + Vector2(radius * .38, radius * .39),
+			center + Vector2(radius * .23, radius * .02), center + Vector2(-radius * .23, radius * .02)
+	]), Color("#ffffff"))
 
 var locale_data: Dictionary = {}
 var catalogs: Dictionary = {}
@@ -619,6 +656,93 @@ func _show_rules() -> void:
 	back.pressed.connect(_show_game if return_game else _show_home)
 	column.add_child(back)
 
+func _hud_player_card(player_id: int) -> PanelContainer:
+	var player: Dictionary = game.state["players"][player_id]
+	var accent: Color = PLAYER_COLORS[player_id % PLAYER_COLORS.size()]
+	var card := PanelContainer.new()
+	card.name = "PlayerCard%d" % player_id
+	card.custom_minimum_size = Vector2(0, 60)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.add_theme_stylebox_override("panel", _card_style(Color(accent, 0.88), Color(accent.lightened(0.30), 0.95), 16))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.layout_direction = Control.LAYOUT_DIRECTION_RTL
+	var avatar := AvatarIcon.new()
+	avatar.custom_minimum_size = Vector2(42, 42)
+	avatar.configure(accent.lightened(0.12))
+	row.add_child(avatar)
+	var details := VBoxContainer.new()
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details.add_child(_label(str(player.get("name", "لاعب")), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT))
+	var owned := 0
+	for owner in game.state.get("tile_owners", []):
+		if int(owner) == player_id:
+			owned += 1
+	details.add_child(_label("الجولة: %d/%d" % [int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16))], 11, Color(1, 1, 1, 0.88), HORIZONTAL_ALIGNMENT_RIGHT))
+	details.add_child(_label("الممتلكات: %d دولة" % owned, 11, Color(1, 1, 1, 0.88), HORIZONTAL_ALIGNMENT_RIGHT))
+	details.add_child(_label("الرصيد: %s" % _money(int(player.get("balance", 0))), 11, Color(1, 1, 1, 0.92), HORIZONTAL_ALIGNMENT_RIGHT))
+	row.add_child(details)
+	card.add_child(row)
+	return card
+
+
+func _add_board_hud() -> void:
+	var players: Array = game.state.get("players", [])
+	var players_row := HBoxContainer.new()
+	players_row.name = "PlayersHud"
+	players_row.add_theme_constant_override("separation", 8)
+	players_row.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	for player_id in range(players.size()):
+		players_row.add_child(_hud_player_card(player_id))
+	center_content.add_child(players_row)
+
+	var map_stage := Control.new()
+	map_stage.name = "WorldMapStage"
+	map_stage.custom_minimum_size = Vector2(0, 112)
+	var map := WorldMapArt.new()
+	map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	map_stage.add_child(map)
+	var logo_wrap := CenterContainer.new()
+	logo_wrap.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	logo_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var logo_column := VBoxContainer.new()
+	logo_column.alignment = BoxContainer.ALIGNMENT_CENTER
+	logo_column.add_theme_constant_override("separation", 2)
+	var logo := TextureRect.new()
+	logo.texture = load("res://assets/brand/luckbank-icon.png")
+	logo.custom_minimum_size = Vector2(128, 82)
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo_column.add_child(logo)
+	logo_column.add_child(_label("بنك الحظ", 24, Color("#b77724"), HORIZONTAL_ALIGNMENT_CENTER))
+	logo_wrap.add_child(logo_column)
+	map_stage.add_child(logo_wrap)
+	center_content.add_child(map_stage)
+
+
+func _add_bottom_nav() -> void:
+	var nav := PanelContainer.new()
+	nav.name = "BottomNavigation"
+	nav.custom_minimum_size = Vector2(0, 52)
+	nav.add_theme_stylebox_override("panel", _card_style(Color("#0c4163"), Color("#2ca4d8"), 24))
+	var nav_row := HBoxContainer.new()
+	nav_row.add_theme_constant_override("separation", 8)
+	nav_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var buttons := [
+		["♟  اللاعبون", Callable(self, "_show_portfolio")],
+		["▣  المحادثة", Callable(self, "_show_more_actions")],
+		["▤  القائمة", Callable(self, "_show_more_actions")],
+		["⚙  الإعدادات", Callable(self, "_show_settings")]
+	]
+	for item: Array in buttons:
+		var button := _button(str(item[0]), Color("#155d86"), 44, 13)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(item[1])
+		nav_row.add_child(button)
+	nav.add_child(nav_row)
+	center_content.add_child(nav)
+
+
 func _show_game() -> void:
 	if game == null or game.state.is_empty():
 		_show_home()
@@ -716,7 +840,7 @@ func _show_game() -> void:
 		player_tokens.append(token)
 
 	center_panel = PanelContainer.new()
-	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#f7edcf"), Color("#5f8665"), 8))
+	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#f8f1dc"), Color("#d2b878"), 18))
 	board_surface.add_child(center_panel)
 	var center_margin := MarginContainer.new()
 	center_margin.add_theme_constant_override("margin_left", 5)
@@ -732,6 +856,7 @@ func _show_game() -> void:
 	center_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center_content.add_theme_constant_override("separation", 3)
 	center_scroll.add_child(center_content)
+	_add_board_hud()
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 5)
 	var home := _secondary_button("⌂  " + _tr("save_home"), 30)
@@ -749,15 +874,19 @@ func _show_game() -> void:
 	status_turn_label = _label("", 17, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	status_round_label = _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	status_phase_label = _label("", 12, BLUE, HORIZONTAL_ALIGNMENT_CENTER)
+	status_round_label.visible = false
+	status_phase_label.visible = false
 	center_content.add_child(status_turn_label)
 	center_content.add_child(status_round_label)
 	center_content.add_child(status_phase_label)
 	tile_detail_label = _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
+	tile_detail_label.visible = false
 	center_content.add_child(tile_detail_label)
 	var tile_info_row := HBoxContainer.new()
 	tile_info_button = _secondary_button(_tr("tile_info_button"), 34)
 	tile_info_button.pressed.connect(_show_tile_information)
 	tile_info_row.add_child(tile_info_button)
+	tile_info_row.visible = false
 	center_content.add_child(tile_info_row)
 	var playmat := _panel(Color("#e7ebcf"), Color("#6f936d"), 8)
 	var playmat_box := VBoxContainer.new()
@@ -771,12 +900,14 @@ func _show_game() -> void:
 		pieces_row.add_child(piece)
 	playmat_box.add_child(pieces_row)
 	playmat.add_child(playmat_box)
+	playmat.visible = false
 	center_content.add_child(playmat)
 	var log_panel := _panel(Color("#fff8df"), Color("#8aa676"), 8)
 	event_log_label = _label("", 12, Color("#514435"), HORIZONTAL_ALIGNMENT_RIGHT)
 	event_log_label.custom_minimum_size.y = 58
 	event_log_label.max_lines_visible = 4
 	log_panel.add_child(event_log_label)
+	log_panel.visible = false
 	center_content.add_child(log_panel)
 	var dice_row := HBoxContainer.new()
 	dice_row.add_theme_constant_override("separation", 8)
@@ -788,7 +919,7 @@ func _show_game() -> void:
 	dice_value_label.visible = false
 	dice_row.add_child(dice_value_label)
 	roll_button = _button("", GOLD, 64, 17)
-	roll_button.custom_minimum_size = Vector2(68, 68)
+	roll_button.custom_minimum_size = Vector2(58, 58)
 	roll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	roll_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	roll_button.tooltip_text = _tr("roll")
@@ -808,7 +939,9 @@ func _show_game() -> void:
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	dice_row.add_child(end_turn_button)
 	center_content.add_child(dice_row)
+	_add_bottom_nav()
 	var utility_row := HBoxContainer.new()
+	utility_row.visible = false
 	portfolio_button = _button(_tr("countries"), GREEN, 40, 15)
 	portfolio_button.pressed.connect(_show_portfolio)
 	utility_row.add_child(portfolio_button)
@@ -866,17 +999,17 @@ func _layout_ring_tiles() -> void:
 	var board_size := board_surface.size
 	if board_size.x < 100.0 or board_size.y < 100.0:
 		return
-	# A real tabletop board uses the same square cell on every side.  Fit an
-	# 11x11 paper board inside the available area so the side cells are never
-	# narrower than the top cells.
-	var cell := minf(board_size.x, board_size.y) / 11.0
-	var board_origin := Vector2((board_size.x - cell * 11.0) * 0.5, (board_size.y - cell * 11.0) * 0.5)
-	center_panel.position = board_origin + Vector2(cell, cell)
-	center_panel.size = Vector2(cell * 9.0, cell * 9.0)
-	var font_size := clampi(int(cell / 5.0), 12, 15)
+	# Landscape tabletop board: width and height are intentionally independent
+	# so the game reads as a rectangular board instead of a square grid.
+	var board_origin := Vector2(6.0, 6.0)
+	var cell_x := (board_size.x - 12.0) / 11.0
+	var cell_y := (board_size.y - 12.0) / 11.0
+	center_panel.position = board_origin + Vector2(cell_x, cell_y)
+	center_panel.size = Vector2(cell_x * 9.0, cell_y * 9.0)
+	var font_size := clampi(int(minf(cell_x, cell_y) / 5.0), 11, 15)
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var coord := _ring_coordinate(tile_index)
-		var rect := Rect2(board_origin + Vector2(coord) * cell, Vector2(cell, cell))
+		var rect := Rect2(board_origin + Vector2(coord.x * cell_x, coord.y * cell_y), Vector2(cell_x, cell_y))
 		var tile_button := tile_buttons[tile_index]
 		tile_button.position = rect.position
 		tile_button.size = rect.size
@@ -939,7 +1072,8 @@ func _update_game_view() -> void:
 		_populate_obligation_panel(turn_id)
 	var waiting_for_decision: bool = purchase_panel.visible or obligation_panel.visible
 	tile_info_button.get_parent().visible = false
-	portfolio_button.get_parent().visible = not waiting_for_decision
+	# The landscape HUD uses the dedicated rounded bottom navigation bar.
+	portfolio_button.get_parent().visible = false
 	feedback_label.visible = not last_feedback.is_empty() and not waiting_for_decision
 	result_panel.visible = not is_active
 	if result_panel.visible:
@@ -1042,7 +1176,7 @@ func _refresh_board() -> void:
 			cell.tooltip_text += " · " + _trf("jail_bail_info", {"amount": _money(int(tile.get("bail", 500)))})
 		if tile_index == selected_tile:
 			border = PLAYER_COLORS[int(game.state.get("turn", 0)) % PLAYER_COLORS.size()]
-		var normal := _card_style(background, border, 9)
+		var normal := _card_style(background, border, 16)
 		normal.content_margin_left = 2
 		normal.content_margin_right = 2
 		normal.content_margin_top = 0
