@@ -9,6 +9,8 @@
 - [تحميل صور اللعب](https://github.com/mojtabahamed163-ai/luckbank/releases/download/v1.0.6/luckbank-gameplay-images-1.0.6.zip)
 - [صفحة إصدار 1.0.6 وملاحظاته](https://github.com/mojtabahamed163-ai/luckbank/releases/tag/v1.0.6)
 
+نسخة APK Debug الحالية محفوظة أيضًا داخل المستودع في [docs/artifacts/luckbank-universal-debug.apk](docs/artifacts/luckbank-universal-debug.apk)، ومعها [دليل تسليم Manus](docs/MANUS_HANDOFF.md) و[تقرير توافق شاشات الهواتف](docs/qa-device-compatibility.md).
+
 ## صور من داخل اللعبة
 
 **لوحة الأربعين خانة، والبداية أسفل اليسار، والنرد السداسي:**
@@ -67,7 +69,7 @@ xvfb-run -a -s '-screen 0 1400x900x24' \
   --script res://test/ui_smoke.gd
 ```
 
-اجتازت اختبارات القواعد والاقتصاد **1448/1448**، ونجح اختبار الواجهة في اللغات الأربع، بما يشمل إعداد اللفات، القوائم والتفاصيل والنرد وموضع البداية. لم يُختبر تثبيت APK على جهاز Android فعلي. صدّر Android من preset `Android` باستخدام قالب Godot المطابق وJDK وAndroid SDK؛ تفاصيل بيئة البناء وتحذير Build-Tools 29.0.3 موجودة في [سجل بيئة البناء](docs/android-build-environment.md).
+اجتازت اختبارات القواعد والاقتصاد **1448/1448**، ونجح اختبار الواجهة في اللغات الأربع وعلى المقاسات الأفقية 640×360 و854×480 و1280×720 و1920×1080، بما يشمل جميع خانات اللوحة الأربعين. لم يُختبر تثبيت APK على جهاز Android فعلي. صدّر Android من preset `Android` باستخدام قالب Godot المطابق وJDK وAndroid SDK؛ التفاصيل والأوامر موجودة في [سجل بيئة البناء](docs/android-build-environment.md) و[دليل التسليم](docs/MANUS_HANDOFF.md).
 
 ## سجل التغيير والترخيص
 
