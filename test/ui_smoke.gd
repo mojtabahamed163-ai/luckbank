@@ -85,6 +85,8 @@ func _run() -> void:
 	for special_tile in [13, 15, 35]:
 		assert(app.tile_labels[special_tile].get_rect().end.y <= app.tile_buttons[special_tile].size.y)
 		assert(app.tile_value_labels[special_tile].get_rect().end.y <= app.tile_buttons[special_tile].size.y)
+	assert(app.tile_value_labels[30].text.contains("غرامة") and app.tile_value_labels[30].text.contains("500") and app.tile_value_labels[30].text.contains("وحدة"))
+	assert(app.tile_value_labels[30].get_rect().end.y <= app.tile_buttons[30].size.y)
 	assert(app.status_round_label.text.contains("الدورات") and not app.status_round_label.text.contains("المتبقي"))
 	assert(app.tile_labels[38].text == app._tile_name(38))
 	await app._animate_dice_roll(4)

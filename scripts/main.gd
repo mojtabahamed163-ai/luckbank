@@ -807,6 +807,8 @@ func _show_game() -> void:
 		var tile_content := VBoxContainer.new()
 		tile_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		tile_content.add_theme_constant_override("separation", -6)
+		if tile_index == BankGameModel.JAIL_TILE:
+			tile_content.add_theme_constant_override("separation", -10)
 		tile_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_button.add_child(tile_content)
 		var square_type := str(BankGameModel.BOARD[tile_index].get("type", ""))
@@ -1092,7 +1094,7 @@ func _layout_ring_tiles() -> void:
 			value_size = 10
 		if tile_index == BankGameModel.JAIL_TILE:
 			title_size = 11
-			value_size = 10
+			value_size = 9
 			tile_id_labels[tile_index].add_theme_font_size_override("font_size", 12 if side_tile else 13)
 			tile_flag_labels[tile_index].add_theme_font_size_override("font_size", 18 if side_tile else 20)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
@@ -1101,7 +1103,7 @@ func _layout_ring_tiles() -> void:
 			(token as Control).custom_minimum_size = Vector2(24, 24) if side_tile else Vector2(28, 28)
 		if tile_index < tile_corner_art.size():
 			if tile_index == BankGameModel.JAIL_TILE:
-				tile_corner_art[tile_index].custom_minimum_size.y = 19
+				tile_corner_art[tile_index].custom_minimum_size.y = 16
 			elif tile_index == 13 or tile_index == 15 or tile_index == 35:
 				tile_corner_art[tile_index].custom_minimum_size.y = 0
 			elif str(BankGameModel.BOARD[tile_index].get("type", "")) == "country":
@@ -1258,7 +1260,7 @@ func _refresh_board() -> void:
 		elif tile_type == "jail":
 			background = Color("#ead3d0")
 			border = RED
-			value = _money(int(tile.get("bail", 500)))
+			value = "غرامة " + _money(int(tile.get("bail", 500)))
 		var owner_mark := "  " + _player_symbol(owner) if tile_type == "country" and owner >= 0 else ""
 		tile_id_labels[tile_index].text = "%d %s" % [tile_index, owner_mark.strip_edges()]
 		tile_flag_labels[tile_index].text = "" if tile_type == "jail" else _flag(tile_index)
