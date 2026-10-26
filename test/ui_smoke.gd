@@ -82,6 +82,10 @@ func _run() -> void:
 	var side_tile_height: float = app.tile_buttons[31].size.y
 	assert(side_tile_height > 0.0 and app.board_surface.size.y > 0.0)
 	assert(app.tile_value_labels[31].get_theme_font_size("font_size") >= 11)
+	for special_tile in [13, 15, 35]:
+		assert(app.tile_labels[special_tile].get_rect().end.y <= app.tile_buttons[special_tile].size.y)
+		assert(app.tile_value_labels[special_tile].get_rect().end.y <= app.tile_buttons[special_tile].size.y)
+	assert(app.status_round_label.text.contains("الدورات") and not app.status_round_label.text.contains("المتبقي"))
 	assert(app.tile_labels[38].text == app._tile_name(38))
 	await app._animate_dice_roll(4)
 	assert(app.dice_face.face_value == 4)

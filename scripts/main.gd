@@ -813,16 +813,16 @@ func _show_game() -> void:
 		var header := HBoxContainer.new()
 		header.layout_direction = Control.LAYOUT_DIRECTION_LTR
 		header.add_theme_constant_override("separation", 1)
-		header.custom_minimum_size = Vector2(0, 16 if square_type == "jail" else 18)
+		header.custom_minimum_size = Vector2(0, 14 if tile_index == 13 or tile_index == 15 or tile_index == 35 else (16 if square_type == "jail" else 18))
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var id_label := _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 		id_label.text_direction = Control.TEXT_DIRECTION_LTR
-		id_label.custom_minimum_size = Vector2(27, 16 if square_type == "jail" else 18)
+		id_label.custom_minimum_size = Vector2(27, 14 if tile_index == 13 or tile_index == 15 or tile_index == 35 else (16 if square_type == "jail" else 18))
 		header.add_child(id_label)
 		var flag_label := _label("", 19, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		flag_label.text_direction = Control.TEXT_DIRECTION_LTR
 		flag_label.add_theme_font_override("font", EMOJI_FONT)
-		flag_label.custom_minimum_size = Vector2(24, 16 if square_type == "jail" else 18)
+		flag_label.custom_minimum_size = Vector2(24, 14 if tile_index == 13 or tile_index == 15 or tile_index == 35 else (16 if square_type == "jail" else 18))
 		flag_label.clip_text = false
 		header.add_child(flag_label)
 		var token_row := HBoxContainer.new()
@@ -833,6 +833,8 @@ func _show_game() -> void:
 		tile_content.add_child(header)
 		var corner_art := CornerArt.new()
 		corner_art.custom_minimum_size = Vector2(0, 28)
+		if tile_index == 13 or tile_index == 15 or tile_index == 35:
+			corner_art.custom_minimum_size = Vector2(0, 0)
 		corner_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if square_type == "start":
 			corner_art.configure("start")
@@ -850,7 +852,11 @@ func _show_game() -> void:
 			corner_art.visible = false
 		tile_content.add_child(corner_art)
 		var name_label := _label("", 12, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		if square_type == "country":
+		if tile_index == 13 or tile_index == 15 or tile_index == 35:
+			name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			name_label.custom_minimum_size = Vector2(0, 20)
+			name_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		elif square_type == "country":
 			name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			name_label.custom_minimum_size = Vector2(0, 18)
 			name_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
@@ -866,6 +872,9 @@ func _show_game() -> void:
 		tile_content.add_child(name_label)
 		var value_label := _label("", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 		value_label.custom_minimum_size = Vector2(0, 16 if square_type == "jail" else (18 if square_type == "country" else 20))
+		if tile_index == 13 or tile_index == 15 or tile_index == 35:
+			value_label.custom_minimum_size = Vector2(0, 14)
+			value_label.add_theme_font_size_override("font_size", 9)
 		if square_type == "country" or square_type == "jail":
 			value_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		value_label.clip_text = false
@@ -873,6 +882,8 @@ func _show_game() -> void:
 		tile_content.add_child(value_label)
 		var value_bottom_padding := Control.new()
 		value_bottom_padding.custom_minimum_size = Vector2(0, 0 if square_type == "country" or square_type == "jail" else 6)
+		if tile_index == 13 or tile_index == 15 or tile_index == 35:
+			value_bottom_padding.custom_minimum_size = Vector2(0, 0)
 		value_bottom_padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_bottom_padding)
 		board_surface.add_child(tile_button)
@@ -1076,6 +1087,9 @@ func _layout_ring_tiles() -> void:
 		var full_name := _tile_name(tile_index)
 		var title_size := 11 if full_name.length() > 15 else 12
 		var value_size := 11
+		if tile_index == 13 or tile_index == 15 or tile_index == 35:
+			title_size = 10
+			value_size = 10
 		if tile_index == BankGameModel.JAIL_TILE:
 			title_size = 11
 			value_size = 10
@@ -1088,6 +1102,8 @@ func _layout_ring_tiles() -> void:
 		if tile_index < tile_corner_art.size():
 			if tile_index == BankGameModel.JAIL_TILE:
 				tile_corner_art[tile_index].custom_minimum_size.y = 19
+			elif tile_index == 13 or tile_index == 15 or tile_index == 35:
+				tile_corner_art[tile_index].custom_minimum_size.y = 0
 			elif str(BankGameModel.BOARD[tile_index].get("type", "")) == "country":
 				tile_corner_art[tile_index].custom_minimum_size.y = 0
 			else:
@@ -1109,7 +1125,7 @@ func _update_game_view() -> void:
 	else:
 		status_turn_label.text = _trf("players_turn", {"name": str(current["name"])})
 	var current_lap: Dictionary = game.lap_status(turn_id)
-	status_round_label.text = "%s: %d/%d · %s: %d · %s: %s" % [_tr("laps"), int(current_lap.get("completed", 0)), int(current_lap.get("required", 10)), _tr("remaining"), int(current_lap.get("remaining", 0)), _tr("balance"), _money(int(current["balance"]))]
+	status_round_label.text = "%s: %d/%d · %s: %s" % [_tr("laps"), int(current_lap.get("completed", 0)), int(current_lap.get("required", 10)), _tr("balance"), _money(int(current["balance"]))]
 	status_phase_label.text = _phase_name(phase)
 	tile_detail_label.text = "%s: %s" % [_tr("position"), _tile_name(int(current["position"]))]
 	tile_info_button.text = "%s · %s" % [_tr("tile_info_button"), _tile_name(selected_tile)]
