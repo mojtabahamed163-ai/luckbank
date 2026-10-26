@@ -797,12 +797,13 @@ func _show_game() -> void:
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var tile_button := Button.new()
 		tile_button.focus_mode = Control.FOCUS_NONE
+		tile_button.clip_contents = false
 		tile_button.text_direction = Control.TEXT_DIRECTION_AUTO
 		tile_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tile_button.pressed.connect(_on_tile_selected.bind(tile_index))
 		var tile_content := VBoxContainer.new()
 		tile_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		tile_content.add_theme_constant_override("separation", 0)
+		tile_content.add_theme_constant_override("separation", -3)
 		tile_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_button.add_child(tile_content)
 		var header := HBoxContainer.new()
@@ -846,12 +847,12 @@ func _show_game() -> void:
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(name_label)
 		var value_label := _label("", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-		value_label.custom_minimum_size = Vector2(0, 12)
+		value_label.custom_minimum_size = Vector2(0, 20)
 		value_label.clip_text = false
 		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_label)
 		var value_bottom_padding := Control.new()
-		value_bottom_padding.custom_minimum_size = Vector2(0, 8)
+		value_bottom_padding.custom_minimum_size = Vector2(0, 6)
 		value_bottom_padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_bottom_padding)
 		board_surface.add_child(tile_button)
