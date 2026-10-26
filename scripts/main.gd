@@ -850,6 +850,10 @@ func _show_game() -> void:
 		value_label.clip_text = false
 		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_label)
+		var value_bottom_padding := Control.new()
+		value_bottom_padding.custom_minimum_size = Vector2(0, 8)
+		value_bottom_padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile_content.add_child(value_bottom_padding)
 		board_surface.add_child(tile_button)
 		tile_buttons.append(tile_button)
 		tile_labels.append(name_label)
