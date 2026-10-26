@@ -732,7 +732,6 @@ func _add_board_hud() -> void:
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	logo_column.add_child(logo)
 	logo_column.add_child(_label("بنك الحظ", 20, Color("#b77724"), HORIZONTAL_ALIGNMENT_CENTER))
-	logo_column.add_child(_label("استثمر، اشترِ، اربح", 10, MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	logo_wrap.add_child(logo_column)
 	map_stage.add_child(logo_wrap)
 	center_content.add_child(map_stage)
@@ -807,22 +806,23 @@ func _show_game() -> void:
 		tile_button.pressed.connect(_on_tile_selected.bind(tile_index))
 		var tile_content := VBoxContainer.new()
 		tile_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		tile_content.add_theme_constant_override("separation", -3)
+		tile_content.add_theme_constant_override("separation", -6)
 		tile_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_button.add_child(tile_content)
+		var square_type := str(BankGameModel.BOARD[tile_index].get("type", ""))
 		var header := HBoxContainer.new()
 		header.layout_direction = Control.LAYOUT_DIRECTION_LTR
 		header.add_theme_constant_override("separation", 1)
-		header.custom_minimum_size = Vector2(0, 20)
+		header.custom_minimum_size = Vector2(0, 16 if square_type == "jail" else 18)
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var id_label := _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 		id_label.text_direction = Control.TEXT_DIRECTION_LTR
-		id_label.custom_minimum_size = Vector2(27, 20)
+		id_label.custom_minimum_size = Vector2(27, 16 if square_type == "jail" else 18)
 		header.add_child(id_label)
-		var flag_label := _label("", 17, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		var flag_label := _label("", 19, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		flag_label.text_direction = Control.TEXT_DIRECTION_LTR
 		flag_label.add_theme_font_override("font", EMOJI_FONT)
-		flag_label.custom_minimum_size = Vector2(22, 19)
+		flag_label.custom_minimum_size = Vector2(24, 16 if square_type == "jail" else 18)
 		flag_label.clip_text = false
 		header.add_child(flag_label)
 		var token_row := HBoxContainer.new()
@@ -834,7 +834,6 @@ func _show_game() -> void:
 		var corner_art := CornerArt.new()
 		corner_art.custom_minimum_size = Vector2(0, 28)
 		corner_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var square_type := str(BankGameModel.BOARD[tile_index].get("type", ""))
 		if square_type == "start":
 			corner_art.configure("start")
 		elif square_type == "market":
@@ -851,18 +850,29 @@ func _show_game() -> void:
 			corner_art.visible = false
 		tile_content.add_child(corner_art)
 		var name_label := _label("", 12, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-		name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		if square_type == "country":
+			name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			name_label.custom_minimum_size = Vector2(0, 18)
+			name_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		elif square_type == "jail":
+			name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			name_label.custom_minimum_size = Vector2(0, 14)
+			name_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		else:
+			name_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.clip_text = false
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(name_label)
 		var value_label := _label("", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-		value_label.custom_minimum_size = Vector2(0, 20)
+		value_label.custom_minimum_size = Vector2(0, 16 if square_type == "jail" else (18 if square_type == "country" else 20))
+		if square_type == "country" or square_type == "jail":
+			value_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		value_label.clip_text = false
 		value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_label)
 		var value_bottom_padding := Control.new()
-		value_bottom_padding.custom_minimum_size = Vector2(0, 6)
+		value_bottom_padding.custom_minimum_size = Vector2(0, 0 if square_type == "country" or square_type == "jail" else 6)
 		value_bottom_padding.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile_content.add_child(value_bottom_padding)
 		board_surface.add_child(tile_button)
@@ -1066,14 +1076,22 @@ func _layout_ring_tiles() -> void:
 		var full_name := _tile_name(tile_index)
 		var title_size := 11 if full_name.length() > 15 else 12
 		var value_size := 11
-		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 12 if side_tile else 13)
-		tile_flag_labels[tile_index].add_theme_font_size_override("font_size", 15 if side_tile else 17)
+		if tile_index == BankGameModel.JAIL_TILE:
+			title_size = 11
+			value_size = 10
+			tile_id_labels[tile_index].add_theme_font_size_override("font_size", 12 if side_tile else 13)
+			tile_flag_labels[tile_index].add_theme_font_size_override("font_size", 18 if side_tile else 20)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
 		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)
 		for token in tile_token_rows[tile_index].get_children():
 			(token as Control).custom_minimum_size = Vector2(24, 24) if side_tile else Vector2(28, 28)
 		if tile_index < tile_corner_art.size():
-			tile_corner_art[tile_index].custom_minimum_size.y = 30 if not side_tile else 0
+			if tile_index == BankGameModel.JAIL_TILE:
+				tile_corner_art[tile_index].custom_minimum_size.y = 19
+			elif str(BankGameModel.BOARD[tile_index].get("type", "")) == "country":
+				tile_corner_art[tile_index].custom_minimum_size.y = 0
+			else:
+				tile_corner_art[tile_index].custom_minimum_size.y = 30 if not side_tile else 0
 	_refresh_board()
 	_update_game_view()
 
@@ -1227,7 +1245,7 @@ func _refresh_board() -> void:
 			value = _money(int(tile.get("bail", 500)))
 		var owner_mark := "  " + _player_symbol(owner) if tile_type == "country" and owner >= 0 else ""
 		tile_id_labels[tile_index].text = "%d %s" % [tile_index, owner_mark.strip_edges()]
-		tile_flag_labels[tile_index].text = _flag(tile_index)
+		tile_flag_labels[tile_index].text = "" if tile_type == "jail" else _flag(tile_index)
 		tile_labels[tile_index].text = title
 		tile_id_labels[tile_index].add_theme_color_override("font_color", MUTED)
 		tile_labels[tile_index].add_theme_color_override("font_color", TEXT)
