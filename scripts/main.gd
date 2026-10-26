@@ -7,12 +7,12 @@ const LOCALE_FILE := "res://localization/luckbank.json"
 const SAVE_FILE := "user://luckbank-save.json"
 const SETTINGS_FILE := "user://luckbank-settings.cfg"
 
-const BG := Color("#061b2a")
-const PANEL := Color("#f7f0d9")
-const PANEL_ALT := Color("#eadfbe")
-const TEXT := Color("#322c25")
-const MUTED := Color("#756a5b")
-const GOLD := Color("#b8752f")
+const BG := Color("#3b2418")
+const PANEL := Color("#fbf1d9")
+const PANEL_ALT := Color("#ead6b0")
+const TEXT := Color("#34261c")
+const MUTED := Color("#75604c")
+const GOLD := Color("#a96a2c")
 const GREEN := Color("#3d9968")
 const BLUE := Color("#397e9c")
 const RED := Color("#b74e45")
@@ -120,6 +120,20 @@ class CornerArt extends Control:
 				draw_line(Vector2(x, frame.position.y), Vector2(x, frame.end.y), accent, maxf(2.0, s * 0.03), true)
 			draw_circle(Vector2(c.x, frame.position.y + s * 0.18), s * 0.07, ink)
 			draw_arc(Vector2(c.x, frame.position.y + s * 0.38), s * 0.14, PI, TAU, 12, ink, maxf(2.0, s * 0.03), true)
+		elif art_kind == "tax":
+			var receipt := Rect2(c - Vector2(s * 0.22, s * 0.30), Vector2(s * 0.44, s * 0.60))
+			draw_rect(receipt, Color("#fff2d4"), true)
+			draw_rect(receipt, ink, false, maxf(1.5, s * 0.025))
+			for line_index in range(3):
+				var y := receipt.position.y + s * (0.18 + line_index * 0.13)
+				draw_line(Vector2(receipt.position.x + s * 0.07, y), Vector2(receipt.end.x - s * 0.07, y), accent, maxf(1.5, s * 0.025), true)
+			draw_circle(Vector2(c.x, receipt.end.y - s * 0.08), s * 0.06, Color("#e07a58"))
+		elif art_kind == "event":
+			draw_circle(c, s * 0.29, Color("#f1c66a", 0.18))
+			draw_arc(c, s * 0.29, 0.0, TAU, 24, accent, maxf(2.0, s * 0.035), true)
+			draw_line(c + Vector2(-s * 0.14, -s * 0.10), c + Vector2(s * 0.14, -s * 0.10), ink, maxf(2.0, s * 0.04), true)
+			draw_line(c + Vector2(0, -s * 0.10), c + Vector2(0, s * 0.10), ink, maxf(2.0, s * 0.04), true)
+			draw_circle(c + Vector2(0, s * 0.18), s * 0.025, ink)
 		elif art_kind == "rest":
 			var cup := Rect2(c - Vector2(s * 0.25, s * 0.13), Vector2(s * 0.42, s * 0.27))
 			draw_rect(cup, Color("#f1c66a", 0.28), true)
@@ -771,7 +785,7 @@ func _show_game() -> void:
 	var board_base := Panel.new()
 	board_base.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	board_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	board_base.add_theme_stylebox_override("panel", _card_style(Color("#6b422b"), Color("#9b704f"), 18))
+	board_base.add_theme_stylebox_override("panel", _card_style(Color("#65402a"), Color("#c59a62"), 18))
 	board_surface.add_child(board_base)
 	tile_buttons.clear()
 	tile_labels.clear()
@@ -809,14 +823,19 @@ func _show_game() -> void:
 		var corner_art := CornerArt.new()
 		corner_art.custom_minimum_size = Vector2(0, 28)
 		corner_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if tile_index == 0:
+		var square_type := str(BankGameModel.BOARD[tile_index].get("type", ""))
+		if square_type == "start":
 			corner_art.configure("start")
-		elif tile_index == BankGameModel.GLOBAL_MARKET_TILE:
+		elif square_type == "market":
 			corner_art.configure("market")
-		elif tile_index == 20:
+		elif square_type == "rest":
 			corner_art.configure("rest")
-		elif tile_index == BankGameModel.JAIL_TILE:
+		elif square_type == "jail":
 			corner_art.configure("jail")
+		elif square_type == "tax":
+			corner_art.configure("tax")
+		elif square_type == "event":
+			corner_art.configure("event")
 		else:
 			corner_art.visible = false
 		tile_content.add_child(corner_art)
@@ -846,7 +865,7 @@ func _show_game() -> void:
 		player_tokens.append(token)
 
 	center_panel = PanelContainer.new()
-	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#f8f1dc"), Color("#d2b878"), 18))
+	center_panel.add_theme_stylebox_override("panel", _card_style(Color("#fff4dc"), Color("#b58a50"), 16))
 	board_surface.add_child(center_panel)
 	var center_margin := MarginContainer.new()
 	center_margin.add_theme_constant_override("margin_left", 5)
@@ -1106,6 +1125,9 @@ func _card_style(background: Color, border: Color, radius: int) -> StyleBoxFlat:
 	style.content_margin_right = 10
 	style.content_margin_top = 8
 	style.content_margin_bottom = 8
+	style.shadow_color = Color("#2b170d", 0.16)
+	style.shadow_size = 2
+	style.shadow_offset = Vector2(0, 2)
 	return style
 
 func _phase_name(phase: String) -> String:
@@ -1198,11 +1220,11 @@ func _refresh_board() -> void:
 			cell.tooltip_text += " · " + _trf("jail_bail_info", {"amount": _money(int(tile.get("bail", 500)))})
 		if tile_index == selected_tile:
 			border = PLAYER_COLORS[int(game.state.get("turn", 0)) % PLAYER_COLORS.size()]
-		var normal := _card_style(background, border, 16)
-		normal.content_margin_left = 2
-		normal.content_margin_right = 2
-		normal.content_margin_top = 0
-		normal.content_margin_bottom = 0
+		var normal := _card_style(background, border, 10)
+		normal.content_margin_left = 3
+		normal.content_margin_right = 3
+		normal.content_margin_top = 2
+		normal.content_margin_bottom = 2
 		cell.add_theme_stylebox_override("normal", normal)
 		var hover := normal.duplicate() as StyleBoxFlat
 		hover.bg_color = background.lightened(0.15)
