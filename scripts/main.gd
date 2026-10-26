@@ -1036,7 +1036,7 @@ func _layout_ring_tiles() -> void:
 	var board_origin := Vector2(6.0, 6.0)
 	var cell_x := (board_size.x - 12.0) / 11.0
 	var cell_y := (board_size.y - 12.0) / 11.0
-	var inner_margin := 1.35
+	var inner_margin := 1.55
 	center_panel.position = board_origin + Vector2(cell_x * inner_margin, cell_y * inner_margin)
 	center_panel.size = Vector2(cell_x * (11.0 - inner_margin * 2.0), cell_y * (11.0 - inner_margin * 2.0))
 	var font_size := clampi(int(minf(cell_x, cell_y) / 5.0), 11, 15)
