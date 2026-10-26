@@ -813,11 +813,11 @@ func _show_game() -> void:
 		var header := HBoxContainer.new()
 		header.layout_direction = Control.LAYOUT_DIRECTION_LTR
 		header.add_theme_constant_override("separation", 1)
-		header.custom_minimum_size = Vector2(0, 13)
+		header.custom_minimum_size = Vector2(0, 20)
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var id_label := _label("", 10, MUTED, HORIZONTAL_ALIGNMENT_LEFT)
+		var id_label := _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 		id_label.text_direction = Control.TEXT_DIRECTION_LTR
-		id_label.custom_minimum_size = Vector2(22, 0)
+		id_label.custom_minimum_size = Vector2(27, 20)
 		header.add_child(id_label)
 		var flag_label := _label("", 17, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		flag_label.text_direction = Control.TEXT_DIRECTION_LTR
@@ -1066,7 +1066,7 @@ func _layout_ring_tiles() -> void:
 		var full_name := _tile_name(tile_index)
 		var title_size := 11 if full_name.length() > 15 else 12
 		var value_size := 11
-		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 8 if side_tile else 9)
+		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 12 if side_tile else 13)
 		tile_flag_labels[tile_index].add_theme_font_size_override("font_size", 15 if side_tile else 17)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
 		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)

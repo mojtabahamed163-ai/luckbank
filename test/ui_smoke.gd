@@ -75,8 +75,9 @@ func _run() -> void:
 	assert(app._ring_coordinate(31) == Vector2i(9, 10))
 	assert(app._ring_coordinate(39) == Vector2i(1, 10))
 	assert(app.tile_labels[10].text == app._tile_name(10) and app.tile_labels[20].text == app._tile_name(20))
-	assert(app.tile_flag_labels.size() == 40 and app.tile_flag_labels[1].text == app._flag(1) and app.tile_flag_labels[1].get_theme_font_size("font_size") >= 15)
+	assert(app.tile_flag_labels.size() == 40 and app._flag(1) == "🇸🇩" and app._flag(2) == "🇪🇬" and app.tile_flag_labels[1].text == app._flag(1) and app.tile_flag_labels[1].get_theme_font_size("font_size") >= 15)
 	assert(app.tile_id_labels[1].text.begins_with("1 ") and not app.tile_id_labels[1].text.begins_with("01"))
+	assert(app.tile_id_labels[1].get_theme_font_size("font_size") >= 12 and app.tile_id_labels[2].text.begins_with("2 "))
 	assert(app.tile_value_labels[31].text.contains("1,800") or app.tile_value_labels[31].text.contains("1800"))
 	var side_tile_height: float = app.tile_buttons[31].size.y
 	assert(side_tile_height > 0.0 and app.board_surface.size.y > 0.0)
