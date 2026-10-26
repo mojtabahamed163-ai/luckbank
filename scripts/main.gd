@@ -201,6 +201,7 @@ var animated_positions: Array[int] = []
 var tile_buttons: Array[Button] = []
 var tile_labels: Array[Label] = []
 var tile_id_labels: Array[Label] = []
+var tile_flag_labels: Array[Label] = []
 var tile_value_labels: Array[Label] = []
 var tile_token_rows: Array[HBoxContainer] = []
 var tile_corner_art: Array[CornerArt] = []
@@ -792,6 +793,7 @@ func _show_game() -> void:
 	tile_buttons.clear()
 	tile_labels.clear()
 	tile_id_labels.clear()
+	tile_flag_labels.clear()
 	tile_value_labels.clear()
 	tile_token_rows.clear()
 	tile_corner_art.clear()
@@ -815,8 +817,14 @@ func _show_game() -> void:
 		header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var id_label := _label("", 10, MUTED, HORIZONTAL_ALIGNMENT_LEFT)
 		id_label.text_direction = Control.TEXT_DIRECTION_LTR
-		id_label.custom_minimum_size = Vector2(28, 0)
+		id_label.custom_minimum_size = Vector2(22, 0)
 		header.add_child(id_label)
+		var flag_label := _label("", 17, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		flag_label.text_direction = Control.TEXT_DIRECTION_LTR
+		flag_label.add_theme_font_override("font", EMOJI_FONT)
+		flag_label.custom_minimum_size = Vector2(22, 19)
+		flag_label.clip_text = false
+		header.add_child(flag_label)
 		var token_row := HBoxContainer.new()
 		token_row.layout_direction = Control.LAYOUT_DIRECTION_LTR
 		token_row.add_theme_constant_override("separation", 0)
@@ -861,6 +869,7 @@ func _show_game() -> void:
 		tile_buttons.append(tile_button)
 		tile_labels.append(name_label)
 		tile_id_labels.append(id_label)
+		tile_flag_labels.append(flag_label)
 		tile_value_labels.append(value_label)
 		tile_token_rows.append(token_row)
 		tile_corner_art.append(corner_art)
@@ -1058,6 +1067,7 @@ func _layout_ring_tiles() -> void:
 		var title_size := 11 if full_name.length() > 15 else 12
 		var value_size := 11
 		tile_id_labels[tile_index].add_theme_font_size_override("font_size", 8 if side_tile else 9)
+		tile_flag_labels[tile_index].add_theme_font_size_override("font_size", 15 if side_tile else 17)
 		tile_labels[tile_index].add_theme_font_size_override("font_size", title_size)
 		tile_value_labels[tile_index].add_theme_font_size_override("font_size", value_size)
 		for token in tile_token_rows[tile_index].get_children():
@@ -1216,7 +1226,8 @@ func _refresh_board() -> void:
 			border = RED
 			value = _money(int(tile.get("bail", 500)))
 		var owner_mark := "  " + _player_symbol(owner) if tile_type == "country" and owner >= 0 else ""
-		tile_id_labels[tile_index].text = "%d %s%s" % [tile_index, _flag(tile_index), owner_mark]
+		tile_id_labels[tile_index].text = "%d %s" % [tile_index, owner_mark.strip_edges()]
+		tile_flag_labels[tile_index].text = _flag(tile_index)
 		tile_labels[tile_index].text = title
 		tile_id_labels[tile_index].add_theme_color_override("font_color", MUTED)
 		tile_labels[tile_index].add_theme_color_override("font_color", TEXT)
@@ -2222,7 +2233,12 @@ func _confirm(title: String, details: String, action: Callable) -> void:
 	dialog.ok_button_text = _tr("confirm")
 	dialog.get_cancel_button().text = _tr("cancel")
 	dialog.min_size = Vector2i(360, 210)
-	dialog.layout_direction = Control.LAYOUT_DIRECTION_RTL if locale == "ar" else Control.LAYOUT_DIRECTION_LTR
+	var dialog_label := dialog.get_label()
+	dialog_label.add_theme_color_override("font_color", Color("#f5e6c8"))
+	dialog_label.add_theme_font_size_override("font_size", 18)
+	dialog_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dialog.get_ok_button().add_theme_color_override("font_color", Color("#f5e6c8"))
+	dialog.get_cancel_button().add_theme_color_override("font_color", Color("#f5e6c8"))
 	add_child(dialog)
 	dialog.confirmed.connect(func():
 		action.call()
