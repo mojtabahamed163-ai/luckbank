@@ -661,14 +661,16 @@ func _hud_player_card(player_id: int) -> PanelContainer:
 	var accent: Color = PLAYER_COLORS[player_id % PLAYER_COLORS.size()]
 	var card := PanelContainer.new()
 	card.name = "PlayerCard%d" % player_id
-	card.custom_minimum_size = Vector2(0, 60)
+	card.custom_minimum_size = Vector2(0, 54)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_theme_stylebox_override("panel", _card_style(Color(accent, 0.88), Color(accent.lightened(0.30), 0.95), 16))
+	var is_current := player_id == int(game.state.get("turn", 0))
+	card.add_theme_stylebox_override("panel", _card_style(Color(accent, 0.88), GOLD if is_current else Color(accent.lightened(0.30), 0.95), 14))
+	card.tooltip_text = "الدور الحالي" if is_current else ""
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	row.layout_direction = Control.LAYOUT_DIRECTION_RTL
 	var avatar := AvatarIcon.new()
-	avatar.custom_minimum_size = Vector2(42, 42)
+	avatar.custom_minimum_size = Vector2(32, 32)
 	avatar.configure(accent.lightened(0.12))
 	row.add_child(avatar)
 	var details := VBoxContainer.new()
@@ -678,9 +680,7 @@ func _hud_player_card(player_id: int) -> PanelContainer:
 	for owner in game.state.get("tile_owners", []):
 		if int(owner) == player_id:
 			owned += 1
-	details.add_child(_label("الجولة: %d/%d" % [int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16))], 11, Color(1, 1, 1, 0.88), HORIZONTAL_ALIGNMENT_RIGHT))
-	details.add_child(_label("الممتلكات: %d دولة" % owned, 11, Color(1, 1, 1, 0.88), HORIZONTAL_ALIGNMENT_RIGHT))
-	details.add_child(_label("الرصيد: %s" % _money(int(player.get("balance", 0))), 11, Color(1, 1, 1, 0.92), HORIZONTAL_ALIGNMENT_RIGHT))
+	details.add_child(_label("%s · %d دولة · %d/%d دورة" % [_money(int(player.get("balance", 0))), owned, int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16))], 10, Color(1, 1, 1, 0.92), HORIZONTAL_ALIGNMENT_RIGHT))
 	row.add_child(details)
 	card.add_child(row)
 	return card
@@ -698,7 +698,7 @@ func _add_board_hud() -> void:
 
 	var map_stage := Control.new()
 	map_stage.name = "WorldMapStage"
-	map_stage.custom_minimum_size = Vector2(0, 112)
+	map_stage.custom_minimum_size = Vector2(0, 84)
 	var map := WorldMapArt.new()
 	map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	map_stage.add_child(map)
@@ -710,11 +710,12 @@ func _add_board_hud() -> void:
 	logo_column.add_theme_constant_override("separation", 2)
 	var logo := TextureRect.new()
 	logo.texture = load("res://assets/brand/luckbank-icon.png")
-	logo.custom_minimum_size = Vector2(128, 82)
+	logo.custom_minimum_size = Vector2(96, 58)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	logo_column.add_child(logo)
-	logo_column.add_child(_label("بنك الحظ", 24, Color("#b77724"), HORIZONTAL_ALIGNMENT_CENTER))
+	logo_column.add_child(_label("بنك الحظ", 20, Color("#b77724"), HORIZONTAL_ALIGNMENT_CENTER))
+	logo_column.add_child(_label("استثمر، اشترِ، اربح", 10, MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	logo_wrap.add_child(logo_column)
 	map_stage.add_child(logo_wrap)
 	center_content.add_child(map_stage)
@@ -723,15 +724,15 @@ func _add_board_hud() -> void:
 func _add_bottom_nav() -> void:
 	var nav := PanelContainer.new()
 	nav.name = "BottomNavigation"
-	nav.custom_minimum_size = Vector2(0, 52)
+	nav.custom_minimum_size = Vector2(0, 46)
 	nav.add_theme_stylebox_override("panel", _card_style(Color("#0c4163"), Color("#2ca4d8"), 24))
 	var nav_row := HBoxContainer.new()
 	nav_row.add_theme_constant_override("separation", 8)
 	nav_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var buttons := [
-		["♟  اللاعبون", Callable(self, "_show_portfolio")],
-		["▣  المحادثة", Callable(self, "_show_more_actions")],
-		["▤  القائمة", Callable(self, "_show_more_actions")],
+		["▤  قواعد اللعبة", Callable(self, "_show_rules")],
+		["▥  الممتلكات", Callable(self, "_show_portfolio")],
+		["▣  بطاقات الحدث", Callable(self, "_show_more_actions")],
 		["⚙  الإعدادات", Callable(self, "_show_settings")]
 	]
 	for item: Array in buttons:
@@ -767,6 +768,11 @@ func _show_game() -> void:
 	board_surface.offset_right = -10
 	board_surface.offset_bottom = -10
 	add_child(board_surface)
+	var board_base := Panel.new()
+	board_base.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	board_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	board_base.add_theme_stylebox_override("panel", _card_style(Color("#6b422b"), Color("#9b704f"), 18))
+	board_surface.add_child(board_base)
 	tile_buttons.clear()
 	tile_labels.clear()
 	tile_id_labels.clear()
@@ -874,13 +880,13 @@ func _show_game() -> void:
 	status_turn_label = _label("", 17, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	status_round_label = _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
 	status_phase_label = _label("", 12, BLUE, HORIZONTAL_ALIGNMENT_CENTER)
-	status_round_label.visible = false
-	status_phase_label.visible = false
+	status_round_label.visible = true
+	status_phase_label.visible = true
 	center_content.add_child(status_turn_label)
 	center_content.add_child(status_round_label)
 	center_content.add_child(status_phase_label)
 	tile_detail_label = _label("", 13, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	tile_detail_label.visible = false
+	tile_detail_label.visible = true
 	center_content.add_child(tile_detail_label)
 	var tile_info_row := HBoxContainer.new()
 	tile_info_button = _secondary_button(_tr("tile_info_button"), 34)
@@ -911,7 +917,9 @@ func _show_game() -> void:
 	center_content.add_child(log_panel)
 	var dice_row := HBoxContainer.new()
 	dice_row.add_theme_constant_override("separation", 8)
-	dice_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	dice_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	dice_row.layout_direction = Control.LAYOUT_DIRECTION_LTR
+	dice_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	dice_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	dice_value_label = _label("", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	dice_value_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -939,7 +947,6 @@ func _show_game() -> void:
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	dice_row.add_child(end_turn_button)
 	center_content.add_child(dice_row)
-	_add_bottom_nav()
 	var utility_row := HBoxContainer.new()
 	utility_row.visible = false
 	portfolio_button = _button(_tr("countries"), GREEN, 40, 15)
@@ -949,9 +956,15 @@ func _show_game() -> void:
 	more_button.pressed.connect(_show_more_actions)
 	utility_row.add_child(more_button)
 	center_content.add_child(utility_row)
-	feedback_label = _label("", 13, last_feedback_color, HORIZONTAL_ALIGNMENT_CENTER)
-	feedback_label.clip_text = true
-	center_content.add_child(feedback_label)
+	var message_panel := _panel(PANEL, Color("#cbb890"), 10)
+	message_panel.name = "MessageBar"
+	feedback_label = _label("", 16, last_feedback_color, HORIZONTAL_ALIGNMENT_CENTER)
+	feedback_label.custom_minimum_size.y = 44
+	feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	feedback_label.clip_text = false
+	message_panel.add_child(feedback_label)
+	center_content.add_child(message_panel)
+	_add_bottom_nav()
 	purchase_panel = _panel(Color("#f2d39a"), GOLD)
 	var purchase_box := VBoxContainer.new()
 	purchase_description = _label("", 16, TEXT, HORIZONTAL_ALIGNMENT_CENTER)
@@ -1004,8 +1017,9 @@ func _layout_ring_tiles() -> void:
 	var board_origin := Vector2(6.0, 6.0)
 	var cell_x := (board_size.x - 12.0) / 11.0
 	var cell_y := (board_size.y - 12.0) / 11.0
-	center_panel.position = board_origin + Vector2(cell_x, cell_y)
-	center_panel.size = Vector2(cell_x * 9.0, cell_y * 9.0)
+	var inner_margin := 1.35
+	center_panel.position = board_origin + Vector2(cell_x * inner_margin, cell_y * inner_margin)
+	center_panel.size = Vector2(cell_x * (11.0 - inner_margin * 2.0), cell_y * (11.0 - inner_margin * 2.0))
 	var font_size := clampi(int(minf(cell_x, cell_y) / 5.0), 11, 15)
 	for tile_index in range(BankGameModel.TILE_COUNT):
 		var coord := _ring_coordinate(tile_index)
@@ -1046,7 +1060,8 @@ func _update_game_view() -> void:
 	tile_info_button.text = "%s · %s" % [_tr("tile_info_button"), _tile_name(selected_tile)]
 	dice_value_label.text = "%s: %s" % [_tr("dice"), "—" if int(game.state.get("last_dice", 0)) == 0 else str(game.state["last_dice"])]
 	if is_instance_valid(dice_face):
-		dice_face.set_face(maxi(1, int(game.state.get("last_dice", 0))))
+		var total_dice := int(game.state.get("last_dice", 0))
+		dice_face.set_face(maxi(1, total_dice))
 		feedback_label.text = last_feedback.replace("\n", " · ")
 		feedback_label.add_theme_color_override("font_color", last_feedback_color)
 		if is_instance_valid(event_log_label):
@@ -1074,7 +1089,8 @@ func _update_game_view() -> void:
 	tile_info_button.get_parent().visible = false
 	# The landscape HUD uses the dedicated rounded bottom navigation bar.
 	portfolio_button.get_parent().visible = false
-	feedback_label.visible = not last_feedback.is_empty() and not waiting_for_decision
+	feedback_label.text = last_feedback.replace("\n", " · ") if not last_feedback.is_empty() else _phase_name(phase)
+	feedback_label.visible = true
 	result_panel.visible = not is_active
 	if result_panel.visible:
 		_populate_result_panel()
@@ -1132,42 +1148,48 @@ func _refresh_board() -> void:
 		var title := _tile_name(tile_index)
 		var value := ""
 		var value_color := GOLD
-		var background := Color("#34404a")
-		var border := Color("#465a65")
+		var background := Color("#f8f0df")
+		var border := Color("#9d8a70")
 		if tile_type == "country":
 			var group_id := int(tile.get("group", 0))
-			background = GROUP_COLORS[group_id].darkened(0.55)
+			background = Color("#fbf4e5")
+			border = GROUP_COLORS[group_id].darkened(0.12)
 			if owner >= 0:
 				border = PLAYER_COLORS[owner % PLAYER_COLORS.size()]
 				value = _money(game.rent_for_tile(tile_index))
 			else:
 				value = _money(int(tile["price"]))
 		elif tile_type == "start":
-			background = Color("#554624")
+			background = Color("#f4dfaa")
+			border = GOLD
 			value = "+" + _money(BankGameModel.LAP_BONUS)
 		elif tile_type == "tax":
-			background = Color("#553634")
+			background = Color("#f2d6cf")
+			border = RED
 			value = _money(int(tile["amount"]))
 		elif tile_type == "event":
-			background = Color("#433558")
+			background = Color("#e9def1")
+			border = Color("#82629a")
 			value = _tr("event_title")
 			value_color = BLUE
 		elif tile_type == "market":
-			background = Color("#315547")
+			background = Color("#dcebd7")
+			border = GREEN
 			value = _tr("investment")
 			value_color = GREEN
 		elif tile_type == "rest":
-			background = Color("#34404a")
+			background = Color("#e9e3d4")
 			value = _tr("rest_board")
 			value_color = MUTED
 		elif tile_type == "jail":
-			background = Color("#553634")
+			background = Color("#ead3d0")
+			border = RED
 			value = _money(int(tile.get("bail", 500)))
 		var owner_mark := "  " + _player_symbol(owner) if tile_type == "country" and owner >= 0 else ""
 		tile_id_labels[tile_index].text = "%d %s%s" % [tile_index, _flag(tile_index), owner_mark]
 		tile_labels[tile_index].text = title
-		tile_id_labels[tile_index].add_theme_color_override("font_color", Color("#f8e8bd"))
-		tile_labels[tile_index].add_theme_color_override("font_color", Color("#fff4d2"))
+		tile_id_labels[tile_index].add_theme_color_override("font_color", MUTED)
+		tile_labels[tile_index].add_theme_color_override("font_color", TEXT)
 		tile_value_labels[tile_index].text = value
 		tile_value_labels[tile_index].add_theme_color_override("font_color", value_color)
 		var cell := tile_buttons[tile_index]
