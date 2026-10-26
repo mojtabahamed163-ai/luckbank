@@ -477,36 +477,84 @@ func _test_computer_decisions() -> void:
 	_check(not cpu_trade.computer_accepts_trade(1, {"from": 0, "to": 1, "give_tile": -1, "ask_tile": Model.EGYPT_TILE, "give_cash": 1, "ask_cash": 0}), "computer declines a clearly unfavorable trade")
 
 func _test_match_end_and_net_worth() -> void:
-	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"], "medium", "short")
-	_check(int(game.state["round_limit"]) == 8, "short match has a distinct actual round limit")
+	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"])
+	_check(int(game.state["lap_limit"]) == 10, "new matches persist the default ten laps per player")
+	var five = Model.new(24681)
+	five.new_game("أ", Model.MODE_LOCAL, ["أ", "ب"], "medium", "normal", 5)
+	var fifteen = Model.new(24682)
+	fifteen.new_game("أ", Model.MODE_LOCAL, ["أ", "ب"], "medium", "normal", 15)
+	_check(int(five.state["lap_limit"]) == 5 and int(fifteen.state["lap_limit"]) == 15, "five and fifteen lap options are stored in the actual match state")
 	game.state["tile_owners"][Model.SUDAN_TILE] = 0
 	game.state["development"][1] = 2
 	game.state["investments"].append({"type": "agriculture", "tile": 1, "owner": 0, "cost": 700, "income": 70, "purchased_turn": 1})
 	var worth: Dictionary = game.get_net_worth(0)
 	_check(int(worth["net_worth"]) == 10000 + 800 + 650 + 350, "net worth uses cash plus 50 percent property, development, and investment value")
-	game.state["round_number"] = 8
+	game.state["players"][0]["completed_laps"] = 10
+	game.state["players"][1]["completed_laps"] = 8
 	game.state["phase"] = "actions"
 	game.state["turn"] = 1
 	var end: Dictionary = game.end_turn(1)
-	_check(bool(end["game_over"]) and not bool(game.state["active"]) and int(game.state["winner_id"]) == 0, "round limit ends match and names net-worth winner")
-	_check(not str(game.state["result"].get("reason", "")).is_empty(), "match end includes an explicit reason")
+	_check(not bool(end["game_over"]) and bool(game.state["active"]) and int(game.state["turn"]) == 1, "one player completing the target laps does not end the match")
+	game.state["players"][1]["completed_laps"] = 10
+	game.state["phase"] = "actions"
+	var final_end: Dictionary = game.end_turn(1)
+	_check(bool(final_end["game_over"]) and not bool(game.state["active"]) and str(game.state["result"].get("reason", "")).contains("اللفات"), "match ends only after every player completes the selected laps")
+	var tie_game := _fresh(Model.MODE_LOCAL, ["أ", "ب"])
+	tie_game.state["players"][0]["completed_laps"] = 10
+	tie_game.state["players"][1]["completed_laps"] = 10
+	tie_game.state["phase"] = "actions"
+	tie_game.end_turn(0)
+	_check(bool(tie_game.state["result"].get("tied", false)) and int(tie_game.state["winner_id"]) == -1 and tie_game.state["result"].get("players", []).size() == 2, "equal net worth is published as a tie without inventing a winner")
+	var result_snapshot := JSON.stringify(tie_game.state["result"])
+	var post_finish_roll: Dictionary = tie_game.roll(0, 1)
+	var post_finish_purchase: Dictionary = tie_game.buy_pending_property()
+	_check(not bool(post_finish_roll.get("ok", false)) and not bool(post_finish_purchase.get("ok", false)) and JSON.stringify(tie_game.state["result"]) == result_snapshot, "finished matches reject new movement or transactions without changing the result")
+	_check(game.state["result"].get("players", [])[0].has("owned_properties") and game.state["result"].get("players", [])[0].has("completed_goals") and game.state["result"].get("players", [])[0].has("trade_count"), "final summaries include only recorded properties, goals, achievements and transaction counts")
+	var capped = _fresh(Model.MODE_COMPUTER)
+	capped.state["lap_limit"] = 5
+	capped.state["players"][0]["completed_laps"] = 5
+	capped.state["players"][0]["position"] = 39
+	capped.state["phase"] = "await_roll"
+	var capped_move: Dictionary = capped.roll(0, 3)
+	_check(bool(capped_move.get("ok", false)) and int(capped.state["players"][0]["completed_laps"]) == 5 and int(capped_move.get("crossings", -1)) == 0, "a completed player cannot exceed the lap target or receive another crossing reward")
+	var local_finish := _fresh(Model.MODE_LOCAL, ["أ", "ب"])
+	local_finish.state["phase"] = "actions"
+	var request: Dictionary = local_finish.request_finish_match(0)
+	_check(bool(request.get("pending", false)) and bool(local_finish.state["active"]) and not local_finish.state["pending_finish"].is_empty(), "local early finish requires a second human approval")
+	var rejected: Dictionary = local_finish.respond_to_finish_request(1, false)
+	_check(bool(rejected.get("ok", false)) and bool(local_finish.state["active"]) and local_finish.state["pending_finish"].is_empty(), "one local rejection keeps the match running")
+	local_finish.state["phase"] = "actions"
+	local_finish.request_finish_match(0)
+	var approved: Dictionary = local_finish.respond_to_finish_request(1, true)
+	_check(bool(approved.get("finished", false)) and not bool(local_finish.state["active"]), "two local approvals finish the match using the live state")
+	var cpu_finish := _fresh(Model.MODE_COMPUTER)
+	cpu_finish.state["phase"] = "actions"
+	var cpu_end: Dictionary = cpu_finish.finish_match_by_user(0)
+	_check(bool(cpu_end.get("ok", false)) and not bool(cpu_finish.state["active"]), "computer mode ends after the human confirmation without a phantom second approval")
 
 func _test_full_local_match_simulation() -> void:
-	var game = _fresh(Model.MODE_LOCAL, ["أ", "ب"], "medium", "short")
+	var game = Model.new(24683)
+	game.new_game("أ", Model.MODE_LOCAL, ["أ", "ب"], "medium", "normal", 5)
 	var guard := 0
-	while bool(game.state["active"]) and guard < 24:
+	while bool(game.state["active"]) and guard < 220:
 		guard += 1
 		var player_id := int(game.state["turn"])
-		var move: Dictionary = game.roll(player_id, 3)
+		if str(game.state.get("phase", "")) == "jail":
+			game.end_turn(player_id)
+			continue
+		var move: Dictionary = game.roll(player_id, 6)
 		if not bool(move.get("ok", false)):
 			break
 		if str(game.state.get("phase", "")) == "pending_purchase":
 			game.skip_pending_purchase()
+		if str(game.state.get("phase", "")) == "jail":
+			game.end_turn(player_id)
+			continue
 		if str(game.state.get("phase", "")) != "actions":
 			break
 		game.end_turn(player_id)
-	_check(not bool(game.state["active"]) and int(game.state["round_number"]) == 9, "full local match reaches the short-round limit without hanging")
-	_check(int(game.state["winner_id"]) >= 0 and int(game.state["result"].get("winner_id", -1)) == int(game.state["winner_id"]), "simulated match publishes a consistent final winner")
+	_check(not bool(game.state["active"]) and int(game.state["players"][0]["completed_laps"]) == 5 and int(game.state["players"][1]["completed_laps"]) == 5, "full local match reaches the lap target without hanging")
+	_check(game.state["result"].get("players", []).size() == 2 and int(game.state["result"].get("lap_limit", 0)) == 5, "simulated match publishes a complete final result from live state")
 	for player in game.state["players"]:
 		_check(int(player["balance"]) >= 0, "simulated match never creates an unsupported negative balance")
 
@@ -516,13 +564,20 @@ func _test_save_restore_and_corruption() -> void:
 	game.state["development"][Model.SUDAN_TILE] = 1
 	game.state["investments"].append({"type": "agriculture", "tile": Model.SUDAN_TILE, "owner": 2, "cost": 700, "income": 70, "purchased_turn": 1})
 	game.state["turn"] = 2
-	game.state["phase"] = "await_roll"
+	game.state["phase"] = "actions"
+	game.state["lap_limit"] = 15
+	game.state["players"][2]["completed_laps"] = 6
+	var finish_request := game.request_finish_match(2)
 	var saved: Dictionary = game.save_to(TEST_SAVE)
 	var restored: Model = Model.new()
 	var loaded: Dictionary = restored.load_from(TEST_SAVE)
 	_check(bool(saved.get("ok", false)) and bool(loaded.get("ok", false)), "valid match and investments save and restore")
 	_check(int(restored.state["turn"]) == 2 and int(restored.state["tile_owners"][Model.SUDAN_TILE]) == 2 and int(restored.state["development"][Model.SUDAN_TILE]) == 1, "player turn, Sudan title and development persist")
 	_check(restored.state["investments"].size() == 1 and int(restored.get_balance(2)) == 10000, "investment and player balances persist")
+	_check(bool(finish_request.get("pending", false)) and int(restored.state["lap_limit"]) == 15 and int(restored.state["players"][2]["completed_laps"]) == 6 and not restored.state["pending_finish"].is_empty(), "lap target, per-player progress and early-finish request survive save and restore")
+	var restored_accept_0 := restored.respond_to_finish_request(0, true)
+	var restored_accept_1 := restored.respond_to_finish_request(1, true)
+	_check(bool(restored_accept_0.get("pending", false)) and bool(restored_accept_1.get("finished", false)) and not bool(restored.state["active"]), "restored early-finish approvals remain stable and finish exactly once")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 	var file := FileAccess.open(CORRUPT_SAVE, FileAccess.WRITE)
 	file.store_string("{ not json")

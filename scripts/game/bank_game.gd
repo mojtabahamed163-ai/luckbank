@@ -1,7 +1,7 @@
 extends RefCounted
 class_name BankGame
 
-const SAVE_VERSION := 5
+const SAVE_VERSION := 6
 const STARTING_CASH := 10000
 const LAP_BONUS := 500
 const TILE_COUNT := 40
@@ -17,6 +17,7 @@ const GLOBAL_MARKET_TILE := 10
 const JAIL_TILE := 30
 const JAIL_TURNS := 3
 const DEV_COSTS := [500, 800, 1200]
+const LAP_LIMITS := [5, 10, 15]
 const MARKET_PRODUCTS := {
 	"food": {"name": "الغذاء", "base_price": 120, "base_supply": 620, "base_demand": 600, "sector": "agriculture"},
 	"livestock": {"name": "المنتجات الحيوانية", "base_price": 160, "base_supply": 420, "base_demand": 400, "sector": "livestock"},
@@ -166,7 +167,7 @@ static func country_tiles() -> Array[int]:
 			result.append(int(tile["id"]))
 	return result
 
-func new_game(player_name: String = "اللاعب", mode: String = MODE_COMPUTER, friend_names: Array = [], difficulty: String = "medium", duration: String = "normal") -> void:
+func new_game(player_name: String = "اللاعب", mode: String = MODE_COMPUTER, friend_names: Array = [], difficulty: String = "medium", duration: String = "normal", lap_limit: int = 10) -> void:
 	var clean_mode := MODE_LOCAL if mode == MODE_LOCAL else MODE_COMPUTER
 	var player_names: Array[String] = []
 	if clean_mode == MODE_COMPUTER:
@@ -189,6 +190,7 @@ func new_game(player_name: String = "اللاعب", mode: String = MODE_COMPUTER
 		owners.append(-1)
 		development.append(0)
 	var limit := 8 if duration == "short" else (24 if duration == "long" else 16)
+	var selected_lap_limit := lap_limit if lap_limit in LAP_LIMITS else 10
 	var deck: Array[int] = []
 	for card_id in range(EVENTS.size()):
 		deck.append(card_id)
@@ -197,6 +199,7 @@ func new_game(player_name: String = "اللاعب", mode: String = MODE_COMPUTER
 		"investments": [], "turn": 0, "active": true, "winner_id": -1, "pending_property": -1,
 		"pending_obligation": {}, "pending_trade": {}, "busy": false, "phase": "await_roll",
 		"last_dice": 0, "turn_number": 1, "round_number": 1, "round_limit": limit,
+		"lap_limit": selected_lap_limit, "pending_finish": {},
 		"duration": duration if duration in ["short", "normal", "long"] else "normal",
 		"difficulty": _clean_difficulty(difficulty), "can_market": false, "did_develop": false,
 		"did_invest": false, "current_tile": 0, "event_deck": deck, "event_discard": [],
@@ -236,6 +239,80 @@ func _clean_player_name(value: String, fallback: String) -> String:
 
 func _clean_difficulty(value: String) -> String:
 	return value if value in ["easy", "medium", "hard"] else "medium"
+
+func lap_limit() -> int:
+	return int(state.get("lap_limit", 10))
+
+func lap_status(player_id: int) -> Dictionary:
+	if not _valid_player_id(player_id):
+		return {}
+	var completed := clampi(int(state["players"][player_id].get("completed_laps", 0)), 0, lap_limit())
+	return {"player": player_id, "completed": completed, "required": lap_limit(), "remaining": maxi(0, lap_limit() - completed), "complete": completed >= lap_limit()}
+
+func all_players_completed_laps() -> bool:
+	if state.is_empty():
+		return false
+	for player in state.get("players", []):
+		if int(player.get("completed_laps", 0)) < lap_limit():
+			return false
+	return true
+
+func _next_lap_eligible_player(after_id: int) -> int:
+	var players: Array = state.get("players", [])
+	if players.is_empty():
+		return after_id
+	for offset in range(1, players.size() + 1):
+		var candidate := (after_id + offset) % players.size()
+		if bool(players[candidate].get("alive", true)) and int(players[candidate].get("completed_laps", 0)) < lap_limit():
+			return candidate
+	return after_id
+
+func request_finish_match(player_id: int) -> Dictionary:
+	if not _can_act(player_id, ["actions"]):
+		return _failure("لا يمكن طلب الإنهاء مع إجراء معلق أو خارج الدور.")
+	if str(state.get("mode", "")) != MODE_LOCAL:
+		return finish_match_by_user(player_id)
+	var pending := {"requested_by": player_id, "approvals": [player_id]}
+	state["pending_finish"] = pending
+	state["last_message"] = "طلب %s إنهاء المباراة مبكرًا؛ يلزم تأييد بقية اللاعبين." % str(state["players"][player_id]["name"])
+	_add_log(str(state["last_message"]))
+	return {"ok": true, "pending": true, "message": state["last_message"]}
+
+func respond_to_finish_request(player_id: int, accept: bool) -> Dictionary:
+	var pending: Dictionary = state.get("pending_finish", {})
+	if pending.is_empty():
+		return _failure("لا يوجد طلب إنهاء مبكر بانتظار الرد.")
+	if not _valid_player_id(player_id) or player_id == int(pending.get("requested_by", -1)) or not is_human_player(player_id):
+		return _failure("هذا اللاعب لا يملك ردًا صالحًا على طلب الإنهاء.")
+	if not accept:
+		state["pending_finish"] = {}
+		state["last_message"] = "رُفض طلب الإنهاء المبكر؛ تستمر المباراة دون تغيير في الأرصدة أو اللفات."
+		_add_log(str(state["last_message"]))
+		return {"ok": true, "accepted": false, "message": state["last_message"]}
+	var approvals: Array = pending.get("approvals", [])
+	var already_approved := false
+	for approved_id in approvals:
+		if int(approved_id) == player_id:
+			already_approved = true
+			break
+	if not already_approved:
+		approvals.append(player_id)
+	pending["approvals"] = approvals
+	state["pending_finish"] = pending
+	var all_approved := true
+	for person_id in range(state["players"].size()):
+		var approved := false
+		for approved_id in approvals:
+			if int(approved_id) == person_id:
+				approved = true
+				break
+		if bool(state["players"][person_id].get("alive", true)) and not approved:
+			all_approved = false
+			break
+	if all_approved:
+		_finish_match("أنهى اللاعبون المباراة مبكرًا بعد موافقة جميع الأطراف.")
+		return {"ok": true, "accepted": true, "finished": true, "result": state["result"], "message": state["last_message"]}
+	return {"ok": true, "accepted": true, "pending": true, "message": "تم تسجيل الموافقة؛ ما زالت موافقة لاعب آخر مطلوبة."}
 
 func country_profile(tile_index: int) -> Dictionary:
 	if COUNTRY_PROFILES.has(tile_index):
@@ -424,13 +501,17 @@ func roll(player_id: int, dice: int, forced_event_index: int = -1) -> Dictionary
 	player["steps_moved"] = int(player["steps_moved"]) + dice
 	state["current_tile"] = destination
 	var messages: Array[String] = []
-	if crossings > 0:
-		player["completed_laps"] = int(player["completed_laps"]) + crossings
-		for _crossing in range(crossings):
+	var laps_before := int(player.get("completed_laps", 0))
+	var counted_crossings := mini(crossings, maxi(0, lap_limit() - laps_before))
+	if counted_crossings > 0:
+		player["completed_laps"] = laps_before + counted_crossings
+		for _crossing in range(counted_crossings):
 			_credit(player_id, LAP_BONUS, "مكافأة عبور البداية", -1, "start")
 			var periodic := collect_periodic_income(player_id)
 			messages.append("دخل دوري عند البداية: %s." % _cash(periodic))
-		messages.append("عبرت البداية %d مرة؛ أضيفت مكافأة %s لكل عبور." % [crossings, _cash(LAP_BONUS)])
+		messages.append("عبرت البداية %d مرة؛ أضيفت مكافأة %s لكل عبور." % [counted_crossings, _cash(LAP_BONUS)])
+	elif crossings > 0:
+		messages.append("اكتملت لفات %s؛ لم تُحتسب عبورات إضافية." % str(player["name"]))
 	var landing := _resolve_landing(player_id, destination, forced_event_index)
 	if not str(landing.get("message", "")).is_empty():
 		messages.append(str(landing["message"]))
@@ -440,7 +521,7 @@ func roll(player_id: int, dice: int, forced_event_index: int = -1) -> Dictionary
 	state["last_message"] = "\n".join(messages) if not messages.is_empty() else "انتهت الحركة. يمكنك التطوير أو الاستثمار أو إنهاء الدور."
 	_add_log("%s رمى %d ووصل إلى %s." % [str(player["name"]), dice, str(BOARD[destination]["name"])])
 	var pending := int(state.get("pending_property", -1))
-	return {"ok": true, "path": path, "from": old_position, "to": destination, "crossings": crossings,
+	return {"ok": true, "path": path, "from": old_position, "to": destination, "crossings": counted_crossings,
 		"messages": messages, "pending_purchase": pending, "phase": str(state["phase"]),
 		"game_over": not bool(state.get("active", false)), "last_event": state.get("last_event", {})}
 
@@ -862,19 +943,26 @@ func end_turn(player_id: int) -> Dictionary:
 		var next_from_jail := _next_alive_player(player_id)
 		state["busy"] = false
 		state["pending_property"] = -1
+		if all_players_completed_laps():
+			_finish_match("اكتملت اللفات المطلوبة لجميع اللاعبين.")
+			return {"ok": true, "next_player": player_id, "round": int(state["round_number"]), "game_over": true, "message": str(state["last_message"]), "released": released}
 		state["turn_number"] = int(state.get("turn_number", 1)) + 1
 		_advance_turn_economy(player_id)
-		if next_from_jail <= player_id:
+		var eligible_from_jail := _next_lap_eligible_player(player_id)
+		if eligible_from_jail <= player_id:
 			state["round_number"] = int(state.get("round_number", 1)) + 1
-		state["turn"] = next_from_jail
-		state["phase"] = "jail" if int(state["players"][next_from_jail].get("jail_turns_remaining", 0)) > 0 else "await_roll"
+		state["turn"] = eligible_from_jail
+		state["phase"] = "jail" if int(state["players"][eligible_from_jail].get("jail_turns_remaining", 0)) > 0 else "await_roll"
 		state["can_market"] = false
 		state["last_message"] = ("انتهت عقوبة %s وخرج من السجن." % str(jailed_player["name"])) if released else ("بقي على %s في السجن %d دورًا." % [str(jailed_player["name"]), int(jailed_player["jail_turns_remaining"])])
 		_add_log(str(state["last_message"]))
-		return {"ok": true, "next_player": next_from_jail, "round": int(state["round_number"]), "game_over": false, "message": str(state["last_message"]), "released": released}
+		return {"ok": true, "next_player": eligible_from_jail, "round": int(state["round_number"]), "game_over": false, "message": str(state["last_message"]), "released": released}
 	state["busy"] = false
 	state["pending_property"] = -1
-	var next := _next_alive_player(player_id)
+	if all_players_completed_laps():
+		_finish_match("اكتملت اللفات المطلوبة لجميع اللاعبين.")
+		return {"ok": true, "next_player": player_id, "round": int(state["round_number"]), "game_over": true, "message": str(state["last_message"])}
+	var next := _next_lap_eligible_player(player_id)
 	state["turn_number"] = int(state.get("turn_number", 1)) + 1
 	_advance_turn_economy(player_id)
 	if next <= player_id:
@@ -884,8 +972,6 @@ func end_turn(player_id: int) -> Dictionary:
 	state["can_market"] = false
 	state["last_message"] = "انتهى الدور. دور %s." % str(state["players"][next]["name"])
 	_add_log(str(state["last_message"]))
-	if int(state["round_number"]) > int(state["round_limit"]):
-		_finish_match("اكتمل حد الجولات (%d)." % int(state["round_limit"]))
 	return {"ok": true, "next_player": next, "round": int(state["round_number"]), "game_over": not bool(state["active"]), "message": str(state["last_message"])}
 
 func pay_jail_bail(player_id: int) -> Dictionary:
@@ -1137,7 +1223,7 @@ func declare_bankruptcy(player_id: int) -> Dictionary:
 	if _alive_count() <= 1:
 		_finish_match("لم يبقَ سوى لاعب واحد بعد الإفلاس.")
 	else:
-		var next_player := _next_alive_player(player_id)
+		var next_player := _next_lap_eligible_player(player_id)
 		state["turn_number"] = int(state.get("turn_number", 1)) + 1
 		if next_player <= player_id:
 			state["round_number"] = int(state.get("round_number", 1)) + 1
@@ -1146,8 +1232,6 @@ func declare_bankruptcy(player_id: int) -> Dictionary:
 		state["can_market"] = false
 		state["did_develop"] = false
 		state["did_invest"] = false
-		if int(state["round_number"]) > int(state["round_limit"]):
-			_finish_match("اكتمل حد الجولات (%d)." % int(state["round_limit"]))
 	return {"ok": true, "message": message, "transferred_properties": property_transfers, "game_over": not bool(state["active"])}
 
 func _has_liquidatable_assets(player_id: int) -> bool:
@@ -1307,29 +1391,67 @@ func get_net_worth(player_id: int) -> Dictionary:
 func _finish_match(reason: String) -> void:
 	if not bool(state.get("active", false)):
 		return
+	state["pending_finish"] = {}
 	state["active"] = false
 	state["phase"] = "finished"
 	state["busy"] = false
-	var winner := -1
-	var best := -9223372036854775807
 	var summaries: Array[Dictionary] = []
 	for player_id in range(state.get("players", []).size()):
-		if not _is_alive(player_id):
-			continue
 		var summary := get_net_worth(player_id)
+		var owned_properties: Array[String] = []
+		for tile_index in country_tiles():
+			if int(state["tile_owners"][tile_index]) == player_id:
+				owned_properties.append(str(BOARD[tile_index].get("name", "")))
+		var completed_goals: Array[String] = []
+		var player_goals: Dictionary = state.get("goals", [])[player_id] if state.get("goals", []).size() > player_id else {}
+		for goal_id in player_goals:
+			if bool(player_goals[goal_id].get("completed", false)):
+				completed_goals.append(str(goal_id))
+		var completed_achievements: Array[String] = []
+		var player_achievements: Dictionary = state.get("achievements", [])[player_id] if state.get("achievements", []).size() > player_id else {}
+		for achievement_id in player_achievements:
+			if bool(player_achievements[achievement_id]):
+				completed_achievements.append(str(achievement_id))
+		var transaction_count := 0
+		var trade_count := 0
+		for entry in state.get("ledger", []):
+			if int(entry.get("player", -1)) == player_id:
+				transaction_count += 1
+				if str(entry.get("category", "")) == "trade":
+					trade_count += 1
 		summary["player"] = player_id
+		summary["name"] = str(state["players"][player_id]["name"])
+		summary["completed_laps"] = int(state["players"][player_id].get("completed_laps", 0))
+		summary["lap_limit"] = lap_limit()
+		summary["alive"] = bool(state["players"][player_id].get("alive", true))
+		summary["owned_properties"] = owned_properties
+		summary["completed_goals"] = completed_goals
+		summary["completed_achievements"] = completed_achievements
+		summary["transaction_count"] = transaction_count
+		summary["trade_count"] = trade_count
 		summaries.append(summary)
-		if int(summary["net_worth"]) > best:
-			best = int(summary["net_worth"])
-			winner = player_id
+	summaries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		if int(left.get("net_worth", 0)) == int(right.get("net_worth", 0)):
+			return int(left.get("player", 0)) < int(right.get("player", 0))
+		return int(left.get("net_worth", 0)) > int(right.get("net_worth", 0)))
+	var winner_ids: Array[int] = []
+	if not summaries.is_empty():
+		var best := int(summaries[0].get("net_worth", 0))
+		for summary in summaries:
+			if int(summary.get("net_worth", 0)) == best:
+				winner_ids.append(int(summary["player"]))
+	var winner := winner_ids[0] if winner_ids.size() == 1 else -1
 	state["winner_id"] = winner
-	state["result"] = {"reason": reason, "winner_id": winner, "players": summaries}
-	state["last_message"] = reason + (" الفائز: %s." % str(state["players"][winner]["name"]) if winner >= 0 else " لا يوجد لاعب ناجٍ.")
+	state["result"] = {"reason": reason, "winner_id": winner, "winner_ids": winner_ids, "tied": winner_ids.size() > 1, "lap_limit": lap_limit(), "players": summaries}
+	var outcome := "تعادل بين %s." % ", ".join(winner_ids.map(func(id: int): return str(state["players"][id]["name"]))) if winner_ids.size() > 1 else ("الفائز: %s." % str(state["players"][winner]["name"]) if winner >= 0 else "لا يوجد لاعب ناجٍ.")
+	state["last_message"] = reason + " " + outcome
 	_add_log(str(state["last_message"]))
 
 func finish_match_by_user(player_id: int) -> Dictionary:
 	if not _can_act(player_id, ["actions"]):
 		return _failure("لا يمكن إنهاء المباراة مع إجراء معلق.")
+	if str(state.get("mode", "")) == MODE_LOCAL:
+		return request_finish_match(player_id)
 	_finish_match("أنهى اللاعب المباراة يدويًا بعد التأكيد.")
 	return {"ok": true, "result": state["result"], "message": state["last_message"]}
 
@@ -1393,7 +1515,7 @@ func load_from(path: String = SAVE_PATH) -> Dictionary:
 		return {"ok": false, "corrupt": true, "message": "ملف الحفظ تالف أو غير مكتمل."}
 	var payload: Dictionary = parser.data
 	var version := int(payload.get("version", -1))
-	if version not in [1, 2, 3, 4, SAVE_VERSION] or typeof(payload.get("state", null)) != TYPE_DICTIONARY:
+	if version not in [1, 2, 3, 4, 5, SAVE_VERSION] or typeof(payload.get("state", null)) != TYPE_DICTIONARY:
 		return {"ok": false, "corrupt": true, "message": "إصدار أو بنية ملف الحفظ غير صالحة."}
 	var candidate: Dictionary = payload["state"].duplicate(true)
 	var migrated := version != SAVE_VERSION
@@ -1413,6 +1535,10 @@ func load_from(path: String = SAVE_PATH) -> Dictionary:
 		candidate["goals"] = _new_goals(candidate.get("players", []).size())
 	if not candidate.has("achievements"):
 		candidate["achievements"] = _new_achievements(candidate.get("players", []).size())
+	if not candidate.has("lap_limit") or int(candidate.get("lap_limit", 0)) not in LAP_LIMITS:
+		candidate["lap_limit"] = 10
+	if not candidate.has("pending_finish") or typeof(candidate.get("pending_finish", null)) != TYPE_DICTIONARY:
+		candidate["pending_finish"] = {}
 	if not validate_state(candidate):
 		return {"ok": false, "corrupt": true, "message": "بيانات المباراة المحفوظة غير متوافقة أو تالفة."}
 	state = candidate.duplicate(true)
@@ -1525,10 +1651,12 @@ static func validate_state(candidate: Dictionary) -> bool:
 			return false
 		if mode == MODE_LOCAL and str(person["controller"]) != "human":
 			return false
-		if mode == MODE_COMPUTER and str(person["controller"]) != ("human" if i == 0 else "computer"):
-			return false
-		if int(person["balance"]) < 0 or int(person["position"]) < 0 or int(person["position"]) >= TILE_COUNT or int(person["debt"]) < 0 or int(person["jail_turns_remaining"]) < 0 or int(person["jail_turns_remaining"]) > JAIL_TURNS:
-			return false
+			if mode == MODE_COMPUTER and str(person["controller"]) != ("human" if i == 0 else "computer"):
+				return false
+			if int(person["balance"]) < 0 or int(person["position"]) < 0 or int(person["position"]) >= TILE_COUNT or int(person["debt"]) < 0 or int(person["jail_turns_remaining"]) < 0 or int(person["jail_turns_remaining"]) > JAIL_TURNS:
+				return false
+			if int(person["completed_laps"]) < 0 or int(person["completed_laps"]) > int(candidate.get("lap_limit", 10)):
+				return false
 		if typeof(person["alive"]) != TYPE_BOOL:
 			return false
 	for i in range(TILE_COUNT):
@@ -1548,6 +1676,25 @@ static func validate_state(candidate: Dictionary) -> bool:
 		return false
 	if not bool(candidate["active"]) and phase != "finished":
 		return false
+	if int(candidate.get("lap_limit", 0)) not in LAP_LIMITS:
+		return false
+	if typeof(candidate.get("pending_finish", null)) != TYPE_DICTIONARY:
+		return false
+	var pending_finish: Dictionary = candidate.get("pending_finish", {})
+	if not pending_finish.is_empty():
+		var requester := int(pending_finish.get("requested_by", -1))
+		var approvals: Variant = pending_finish.get("approvals", [])
+		var requester_approved := false
+		if typeof(approvals) == TYPE_ARRAY:
+			for approved_id in approvals:
+				if int(approved_id) == requester:
+					requester_approved = true
+					break
+		if requester < 0 or requester >= players.size() or str(players[requester].get("controller", "")) != "human" or typeof(approvals) != TYPE_ARRAY or not requester_approved:
+			return false
+		for approved_id in approvals:
+			if int(approved_id) < 0 or int(approved_id) >= players.size() or str(players[int(approved_id)].get("controller", "")) != "human":
+				return false
 	if int(candidate.get("pending_property", -1)) >= 0:
 		var pending := int(candidate["pending_property"])
 		if phase != "pending_purchase" or pending >= TILE_COUNT or str(BOARD[pending]["type"]) != "country" or int(owners[pending]) != -1:

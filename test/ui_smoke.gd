@@ -11,12 +11,14 @@ func _run() -> void:
 	app._show_setup()
 	app.mode_option.select(1)
 	app.player_count_option.select(2)
-	app.duration_option.select(0)
+	app.lap_limit_option.select(0)
+	assert(app.lap_limit_option.get_item_count() == 3 and app.lap_limit_option.get_selected_id() == 5)
 	app._on_setup_changed(2)
 	app._start_match()
 	await process_frame
 	assert(app.game.state["players"].size() == 4)
 	assert(app.game.state["players"][0]["controller"] == "human")
+	assert(int(app.game.state["lap_limit"]) == 5)
 	app.game.state["tile_owners"][1] = 0
 	app.game.state["tile_owners"][2] = 0
 	app.game.state["investments"].append({"type": "agriculture", "tile": 1, "owner": 0, "cost": 700, "income": 70, "level": 0})

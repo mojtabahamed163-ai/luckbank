@@ -218,6 +218,7 @@ var mode_option: OptionButton
 var player_count_option: OptionButton
 var difficulty_option: OptionButton
 var duration_option: OptionButton
+var lap_limit_option: OptionButton
 var language_option: OptionButton
 var fast_cpu_option: CheckBox
 var status_turn_label: Label
@@ -534,15 +535,15 @@ func _show_setup() -> void:
 	difficulty_option.select(1)
 	_style_option(difficulty_option)
 	column.add_child(difficulty_option)
-	column.add_child(_label(_tr("duration"), 18, GOLD))
-	duration_option = OptionButton.new()
-	duration_option.add_item(_tr("short"), 0)
-	duration_option.add_item(_tr("normal"), 1)
-	duration_option.add_item(_tr("long"), 2)
-	duration_option.select(1)
-	_style_option(duration_option)
-	column.add_child(duration_option)
-	column.add_child(_label(_tr("duration_note"), 15, MUTED))
+	column.add_child(_label(_tr("lap_limit"), 18, GOLD))
+	lap_limit_option = OptionButton.new()
+	lap_limit_option.add_item(_tr("laps_5"), 5)
+	lap_limit_option.add_item(_tr("laps_10"), 10)
+	lap_limit_option.add_item(_tr("laps_15"), 15)
+	lap_limit_option.select(1)
+	_style_option(lap_limit_option)
+	column.add_child(lap_limit_option)
+	column.add_child(_label(_tr("lap_limit_note"), 15, MUTED))
 	var start := _button(_tr("start"), GREEN, 62, 22)
 	start.pressed.connect(_start_match)
 	column.add_child(start)
@@ -571,8 +572,7 @@ func _start_match() -> void:
 	current_mode = mode
 	var difficulty_id := difficulty_option.get_selected_id()
 	var difficulty: String = ["easy", "medium", "hard"][clampi(difficulty_id, 0, 2)]
-	var duration_id := duration_option.get_selected_id()
-	var duration: String = ["short", "normal", "long"][clampi(duration_id, 0, 2)]
+	var lap_limit := lap_limit_option.get_selected_id()
 	var first := name_inputs[0].text.strip_edges()
 	if first.is_empty():
 		first = "اللاعب" if locale == "ar" else "Player"
@@ -585,7 +585,7 @@ func _start_match() -> void:
 				name = _trf("player_name_n", {"n": str(index + 1)})
 			names.append(name)
 	game = BankGameModel.new()
-	game.new_game(first, mode, names, difficulty, duration)
+	game.new_game(first, mode, names, difficulty, "normal", lap_limit)
 	selected_tile = 0
 	last_landed_player_id = 0
 	animated_positions.clear()
@@ -694,7 +694,9 @@ func _hud_player_card(player_id: int) -> PanelContainer:
 	for owner in game.state.get("tile_owners", []):
 		if int(owner) == player_id:
 			owned += 1
-	details.add_child(_label("%s · %d دولة · %d/%d دورة" % [_money(int(player.get("balance", 0))), owned, int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16))], 10, Color(1, 1, 1, 0.92), HORIZONTAL_ALIGNMENT_RIGHT))
+	var lap: Dictionary = game.lap_status(player_id)
+	var lap_text := ("مكتمل" if bool(lap.get("complete", false)) else "متبقٍ %d" % int(lap.get("remaining", 0)))
+	details.add_child(_label("%s · %d دولة · %d/%d لفة · %s" % [_money(int(player.get("balance", 0))), owned, int(lap.get("completed", 0)), int(lap.get("required", 10)), lap_text], 10, Color(1, 1, 1, 0.92), HORIZONTAL_ALIGNMENT_RIGHT))
 	row.add_child(details)
 	card.add_child(row)
 	return card
@@ -1078,7 +1080,8 @@ func _update_game_view() -> void:
 		status_turn_label.text = _tr("cpu_turn") if cpu_running else _trf("players_turn", {"name": str(current["name"])})
 	else:
 		status_turn_label.text = _trf("players_turn", {"name": str(current["name"])})
-	status_round_label.text = "%s %d/%d   ·   %s: %s" % [_tr("round"), int(game.state.get("round_number", 1)), int(game.state.get("round_limit", 16)), _tr("balance"), _money(int(current["balance"]))]
+	var current_lap: Dictionary = game.lap_status(turn_id)
+	status_round_label.text = "%s: %d/%d · %s: %d · %s: %s" % [_tr("laps"), int(current_lap.get("completed", 0)), int(current_lap.get("required", 10)), _tr("remaining"), int(current_lap.get("remaining", 0)), _tr("balance"), _money(int(current["balance"]))]
 	status_phase_label.text = _phase_name(phase)
 	tile_detail_label.text = "%s: %s" % [_tr("position"), _tile_name(int(current["position"]))]
 	tile_info_button.text = "%s · %s" % [_tr("tile_info_button"), _tile_name(selected_tile)]
@@ -1741,9 +1744,29 @@ func _show_more_actions() -> void:
 	rules.pressed.connect(_show_rules)
 	column.add_child(rules)
 	var finish := _button(_tr("end_match"), RED, 50, 17)
-	finish.disabled = not human_turn or phase != "actions"
+	finish.disabled = not human_turn or phase != "actions" or not game.state.get("pending_finish", {}).is_empty()
 	finish.pressed.connect(_confirm_finish_match)
 	column.add_child(finish)
+	var pending_finish: Dictionary = game.state.get("pending_finish", {})
+	if not pending_finish.is_empty():
+		var requester := int(pending_finish.get("requested_by", -1))
+		var approval_panel := _panel(Color("#392b2b"), RED)
+		var approval_box := VBoxContainer.new()
+		approval_box.add_child(_label(_tr("finish_request_title"), 18, RED, HORIZONTAL_ALIGNMENT_CENTER))
+		approval_box.add_child(_label(_trf("finish_request_detail", {"name": str(game.state["players"][requester]["name"])}), 15, TEXT, HORIZONTAL_ALIGNMENT_CENTER))
+		for person_id in range(game.state["players"].size()):
+			if person_id == requester or not game.is_human_player(person_id):
+				continue
+			var response_row := HBoxContainer.new()
+			var approve := _button(str(game.state["players"][person_id]["name"]) + " · " + _tr("approve_finish"), GREEN, 44, 14)
+			approve.pressed.connect(_respond_finish_request.bind(person_id, true))
+			var reject := _secondary_button(_tr("reject_finish"), 44)
+			reject.pressed.connect(_respond_finish_request.bind(person_id, false))
+			response_row.add_child(approve)
+			response_row.add_child(reject)
+			approval_box.add_child(response_row)
+		approval_panel.add_child(approval_box)
+		column.add_child(approval_panel)
 	var save_home := _secondary_button(_tr("save_home"), 46)
 	save_home.pressed.connect(_save_and_home)
 	column.add_child(save_home)
@@ -2108,17 +2131,52 @@ func _populate_result_panel() -> void:
 	for child in result_content.get_children():
 		child.queue_free()
 	result_content.add_child(_label(_tr("final_summary"), 23, GOLD, HORIZONTAL_ALIGNMENT_CENTER))
-	var winner_id := int(game.state.get("winner_id", -1))
-	var winner_name := str(game.state["players"][winner_id]["name"]) if winner_id >= 0 and winner_id < game.state["players"].size() else _tr("unknown")
-	result_content.add_child(_label(_tr("winner") + ": " + winner_name, 20, GREEN, HORIZONTAL_ALIGNMENT_CENTER))
-	var reason := str(game.state.get("result", {}).get("reason", ""))
-	result_content.add_child(_label(_tr("winner_reason") + ": " + (_tr("round_end") if reason.contains("الجولات") else reason if locale == "ar" else _tr("game_over")), 15, MUTED))
-	for player_id in range(game.state["players"].size()):
-		var worth: Dictionary = game.get_net_worth(player_id)
-		var summary := "%s %s\n%s: %s · %s: %s\n%s: %s · %s: %s\n%s: %s · %s: %s" % [_player_symbol(player_id), str(game.state["players"][player_id]["name"]), _tr("cash_value"), _money(int(worth.get("cash", 0))), _tr("property_value"), _money(int(worth.get("property_value", 0))), _tr("development_value"), _money(int(worth.get("development_value", 0))), _tr("investment_value"), _money(int(worth.get("investment_value", 0))), _tr("debt_value"), _money(int(worth.get("debt", 0))), _tr("net_worth"), _money(int(worth.get("net_worth", 0)))]
+	var result: Dictionary = game.state.get("result", {})
+	var winner_ids: Array = result.get("winner_ids", [])
+	var winner_text := _tr("unknown")
+	if winner_ids.size() == 1:
+		winner_text = str(game.state["players"][int(winner_ids[0])]["name"])
+	elif winner_ids.size() > 1:
+		var tied_names: Array[String] = []
+		for tied_id in winner_ids:
+			tied_names.append(str(game.state["players"][int(tied_id)]["name"]))
+		winner_text = _tr("tie") + ": " + ", ".join(tied_names)
+	result_content.add_child(_label(_tr("winner") + ": " + winner_text, 20, GREEN, HORIZONTAL_ALIGNMENT_CENTER))
+	var reason := str(result.get("reason", ""))
+	result_content.add_child(_label(_tr("winner_reason") + ": " + (reason if locale == "ar" else _tr("game_over")), 15, MUTED))
+	result_content.add_child(_label(_tr("lap_limit") + ": %d %s" % [int(result.get("lap_limit", game.lap_limit())), _tr("per_player")], 15, TEXT))
+	var summaries: Array = result.get("players", [])
+	for rank in range(summaries.size()):
+		var saved_summary: Dictionary = summaries[rank]
+		var player_id := int(saved_summary.get("player", -1))
+		if player_id < 0 or player_id >= game.state["players"].size():
+			continue
+		var status := _tr("player_out") if not bool(saved_summary.get("alive", true)) else ("#%d" % (rank + 1))
+		var summary := "%s  %s %s\n%s: %s · %s: %s\n%s: %s · %s: %s\n%s: %s · %s: %s\n%s: %d/%d · %s: %s" % [status, _player_symbol(player_id), str(saved_summary.get("name", game.state["players"][player_id]["name"])), _tr("cash_value"), _money(int(saved_summary.get("cash", 0))), _tr("property_value"), _money(int(saved_summary.get("property_value", 0))), _tr("development_value"), _money(int(saved_summary.get("development_value", 0))), _tr("investment_value"), _money(int(saved_summary.get("investment_value", 0))), _tr("debt_value"), _money(int(saved_summary.get("debt", 0))), _tr("laps"), int(saved_summary.get("completed_laps", 0)), int(saved_summary.get("lap_limit", game.lap_limit())), _tr("net_worth"), _money(int(saved_summary.get("net_worth", 0)))]
 		result_content.add_child(_panel(PANEL_ALT, PLAYER_COLORS[player_id]))
 		var row: PanelContainer = result_content.get_child(result_content.get_child_count() - 1)
-		row.add_child(_label(summary, 15, TEXT))
+		var result_box := VBoxContainer.new()
+		result_box.add_child(_label(summary, 15, TEXT))
+		var extra_lines: Array[String] = []
+		var property_names: Array = saved_summary.get("owned_properties", [])
+		if not property_names.is_empty():
+			var property_text: Array[String] = []
+			for property_name in property_names:
+				property_text.append(str(property_name))
+			extra_lines.append(_tr("owned_properties") + ": " + ", ".join(property_text))
+		var goals_done: Array = saved_summary.get("completed_goals", [])
+		if not goals_done.is_empty():
+			extra_lines.append(_tr("completed_goals") + ": " + ", ".join(goals_done))
+		var achievements_done: Array = saved_summary.get("completed_achievements", [])
+		if not achievements_done.is_empty():
+			extra_lines.append(_tr("completed_achievements") + ": " + ", ".join(achievements_done))
+		var transactions := int(saved_summary.get("transaction_count", 0))
+		var trades := int(saved_summary.get("trade_count", 0))
+		if transactions > 0 or trades > 0:
+			extra_lines.append("%s: %d · %s: %d" % [_tr("transaction_count"), transactions, _tr("trade_count"), trades])
+		if not extra_lines.is_empty():
+			result_box.add_child(_label("\n".join(extra_lines), 13, MUTED))
+		row.add_child(result_box)
 	var new_game := _button(_tr("play_again"), GREEN)
 	new_game.pressed.connect(_show_setup)
 	result_content.add_child(new_game)
@@ -2127,6 +2185,13 @@ func _populate_result_panel() -> void:
 	result_content.add_child(home)
 
 func _confirm_finish_match() -> void:
+	if str(game.state.get("mode", "")) == BankGameModel.MODE_LOCAL:
+		var request: Dictionary = game.request_finish_match(int(game.state.get("turn", -1)))
+		last_feedback = str(request.get("message", _tr("unknown")))
+		last_feedback_color = BLUE if bool(request.get("ok", false)) else RED
+		_save_game_state()
+		_show_more_actions()
+		return
 	_confirm(_tr("end_match"), _tr("confirm_end"), _perform_finish_match)
 
 func _perform_finish_match() -> void:
@@ -2135,6 +2200,13 @@ func _perform_finish_match() -> void:
 		last_feedback = _tr("game_over")
 		_save_game_state()
 		_show_game()
+
+func _respond_finish_request(player_id: int, accept: bool) -> void:
+	var response: Dictionary = game.respond_to_finish_request(player_id, accept)
+	last_feedback = str(response.get("message", _tr("unknown")))
+	last_feedback_color = GREEN if bool(response.get("accepted", false)) else (MUTED if bool(response.get("ok", false)) else RED)
+	_save_game_state()
+	_show_game()
 
 func _alive_player_count() -> int:
 	var count := 0
